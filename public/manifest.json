@@ -1,0 +1,9 @@
+{
+  "name": "Commandes La Vie Saine",
+  "short_name": "La Vie Saine",
+  "start_url": "/client",
+  "display": "standalone",
+  "background_color": "#faf7f0",
+  "theme_color": "#2f6b3a",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

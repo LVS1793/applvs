@@ -1,0 +1,60 @@
+:root {
+  --vert: #2f6b3a; --vert-clair: #e6f0e4; --fond: #faf7f0; --carte: #fff;
+  --texte: #1f2420; --gris: #6b7069; --bord: #e2ddd2; --rouge: #b42318; --ambre: #b45309;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--fond); color: var(--texte); font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+.wrap { max-width: 760px; margin: 0 auto; padding: 16px 16px 120px; }
+.wide { max-width: 1100px; }
+header.bar { background: var(--vert); color: #fff; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+header.bar h1 { font-size: 18px; margin: 0; }
+header.bar button { background: transparent; color: #fff; border: 1px solid #ffffff88; }
+h2 { font-size: 20px; margin: 20px 0 8px; }
+h3 { font-size: 16px; margin: 16px 0 6px; }
+.card { background: var(--carte); border: 1px solid var(--bord); border-radius: 12px; padding: 14px; margin: 10px 0; }
+label { display: block; font-weight: 600; margin: 10px 0 4px; font-size: 14px; }
+input, select, textarea { width: 100%; font: inherit; padding: 10px; border: 1px solid var(--bord); border-radius: 8px; background: #fff; }
+button { font: inherit; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--bord); background: #fff; cursor: pointer; }
+button.primaire { background: var(--vert); color: #fff; border-color: var(--vert); font-weight: 600; }
+button.gros { width: 100%; padding: 14px; font-size: 17px; }
+button:disabled { opacity: .5; cursor: default; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.row > * { flex: 1; min-width: 0; }
+.muted { color: var(--gris); font-size: 14px; }
+.err { background: #fdecea; color: var(--rouge); padding: 10px; border-radius: 8px; margin: 8px 0; }
+.ok { background: var(--vert-clair); color: var(--vert); padding: 10px; border-radius: 8px; margin: 8px 0; }
+.tabs { display: flex; gap: 6px; overflow-x: auto; margin: 12px 0; }
+.tabs button.actif { background: var(--vert); color: #fff; border-color: var(--vert); }
+.choix { display: grid; gap: 12px; margin-top: 24px; }
+.choix a { display: block; text-decoration: none; color: inherit; background: #fff; border: 2px solid var(--bord); border-radius: 14px; padding: 22px; }
+.choix a strong { font-size: 20px; color: var(--vert); display: block; }
+.ligne { display: grid; grid-template-columns: 1fr 74px; gap: 6px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--bord); }
+.ligne .nom { font-size: 15px; }
+.ligne .prix { font-size: 13px; color: var(--gris); }
+.ligne input { text-align: center; padding: 8px 4px; }
+.ligne select { grid-column: 1 / -1; padding: 6px; font-size: 14px; }
+.total { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; border-top: 1px solid var(--bord); padding: 10px 16px; }
+.total .in { max-width: 760px; margin: 0 auto; }
+.pastille { display: inline-block; width: 14px; height: 14px; border-radius: 4px; border: 1px solid #0003; vertical-align: -2px; margin-right: 4px; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--bord); }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+.badge { font-size: 12px; padding: 2px 8px; border-radius: 99px; background: #eee; white-space: nowrap; }
+.badge.vert { background: var(--vert-clair); color: var(--vert); }
+.badge.ambre { background: #fef3c7; color: var(--ambre); }
+.badge.rouge { background: #fdecea; color: var(--rouge); }
+.okbar { margin-top: 10px; padding: 12px; border: 2px dashed var(--bord); border-radius: 10px; display: flex; gap: 8px; align-items: center; }
+.okbar.fait { border-color: var(--vert); background: var(--vert-clair); }
+.recherche { margin-bottom: 8px; }
+.print-only { display: none; }
+
+@media print {
+  body { background: #fff; font-size: 12px; }
+  .no-print, header.bar, .tabs, .total { display: none !important; }
+  .print-only { display: block; }
+  .wrap { max-width: none; padding: 0; }
+  .card { border: 1px solid #000; break-inside: avoid; }
+  .saut { break-after: page; }
+  .pastille, td[style] { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  th, td { border-bottom: 1px solid #000; padding: 4px; }
+}
