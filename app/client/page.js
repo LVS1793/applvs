@@ -183,8 +183,16 @@ function Commande({ etat, recharger }) {
   })();
   // Panier vide + date choisie : on propose automatiquement la commande habituelle de ce jour
   useEffect(() => { if (date && !tab.length && habitudes[jourDe(date)]) appliquerHabitude(jourDe(date)); }, [date]);
-  const visibles = PRODUITS.filter((p) =>
-    (q ? libelle(p).toLowerCase().includes(q.toLowerCase()) : cat === "mes" ? mesIds.has(p.id) || lignes[p.id]?.qte : p.cat === cat));
+  // Catalogue limité aux produits déjà achetés (fiches de chargement, commandes d'office, commandes passées).
+  // Un client sans aucun historique voit le catalogue complet.
+  const restreint = !!(moi.produits && moi.produits.length);
+  const autorises = new Set([...(moi.produits || []), ...mesIds]);
+  const visibles = PRODUITS.filter((p) => {
+    if (restreint && !autorises.has(p.id) && !lignes[p.id]?.qte) return false;
+    if (q) return libelle(p).toLowerCase().includes(q.toLowerCase());
+    if (restreint) return true;
+    return cat === "mes" ? mesIds.has(p.id) || lignes[p.id]?.qte : p.cat === cat;
+  });
 
   const prerempli = (v) => {
     if (v.startsWith("hab:")) return appliquerHabitude(v.slice(4));
@@ -257,12 +265,17 @@ function Commande({ etat, recharger }) {
         <p className="muted" style={{ margin: "6px 0 0" }}>{mode === "livraison" ? "Livraison le matin, minimum 3 000 XPF HT." : "Retrait au fournil de 6 h à 12 h, lundi au vendredi."}</p>
       </div>
 
-      <div className="tabs">
-        {mesIds.size > 0 && <button className={cat === "mes" ? "actif" : ""} onClick={() => setCat("mes")}>Mes produits</button>}
-        <button className={cat === "snack" ? "actif" : ""} onClick={() => setCat("snack")}>Snacking</button>
-        <button className={cat === "emballe" ? "actif" : ""} onClick={() => setCat("emballe")}>Pains emballés</button>
-      </div>
-      <input className="recherche" placeholder="🔎 Chercher un produit" value={q} onChange={(e) => setQ(e.target.value)} />
+      {restreint ? (
+        <h3>Mes produits ({autorises.size})</h3>
+      ) : (
+        <div className="tabs">
+          {mesIds.size > 0 && <button className={cat === "mes" ? "actif" : ""} onClick={() => setCat("mes")}>Mes produits</button>}
+          <button className={cat === "snack" ? "actif" : ""} onClick={() => setCat("snack")}>Snacking</button>
+          <button className={cat === "emballe" ? "actif" : ""} onClick={() => setCat("emballe")}>Pains emballés</button>
+        </div>
+      )}
+      {(!restreint || autorises.size > 12) && <input className="recherche" placeholder="🔎 Chercher un produit" value={q} onChange={(e) => setQ(e.target.value)} />}
+      {restreint && <p className="muted" style={{ margin: "0 0 6px" }}>Un autre produit ? Ajoutez-le avec « J'ai une commande supplémentaire » en bas.</p>}
 
       <div className="card">
         {visibles.map((p) => {

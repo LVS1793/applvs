@@ -147,7 +147,7 @@ for (const c of resultat.values()) {
 // Rapprochements vérifiés à la main (nom du tableau -> ID LGL). null = client absent de la base LGL.
 const FORCE = {
   "Super Mag": "698", "Superette 68": "87", "Ma Vie Là": "723", "Trait. Myshop": "727", "Traiteur Best. Super.": "346",
-  "Total Ducos": null, "Cosy Foch": null,
+  "Total Ducos": null, "Cosy Foch": null, "Magasin Val Plaisance": "146",
 };
 const nonTrouves = [];
 for (const h of habitudes) {
@@ -164,6 +164,88 @@ for (const h of habitudes) {
   if (h.remarque) c.remarque = h.remarque;
   c.nomTableau = h.nomTableau;
 }
+// ---------- 4. Fiches de chargement par client (Chargement\Fiches Clients 2026\Livreur N.xlsx) ----------
+// Un onglet par client ; bloc « NORMAL » = quantités chargées habituellement par jour.
+const DIR_CHG = process.env.LGL_CHARGEMENTS || "//nas/COMMUN/Commercial 2019/Chargement/Fiches Clients 2026/";
+const MAP_CHG = [
+  [/^bagels? pavot/i, "E77"], [/^brioch[ée] tranch/i, "E13"], [/^c[ée]r[ée]ales/i, "E18"], [/^complet au raisin/i, "E39"],
+  [/^complet grand/i, "E1"], [/^complet soja/i, "E25"], [/^complet xxl/i, "E70"], [/^grand brio/i, "E11"],
+  [/^hamburger x4 600/i, "E36"], [/^hamburger x4/i, "E20"], [/^hot dog s[ée]same x2/i, "E67"], [/^lait x2/i, "E33"],
+  [/^mini brioch/i, "E76"], [/^muffin x3/i, "E72"], [/^multigrains xxl coup/i, "E62"], [/^multigrains xxl/i, "E65"],
+  [/^pain de f[êe]te brio/i, "E46"], [/^pain de f[êe]te nat/i, "E47"], [/^pain de mie sans sel/i, "E40"],
+  [/^panier blanc/i, "E37"], [/^panier complet/i, "E54"], [/^panini filet/i, "E68"], [/^petit complet/i, "E74"],
+  [/^petit mie/i, "E75"], [/^petit panier blanc/i, "E21"], [/^petit panier complet/i, "E73"], [/^sandwich/i, "E4"],
+  [/^seigle cocktail/i, "E35"], [/^seigle noix/i, "E23"], [/^seigle raisins?/i, "E16"], [/^seigle xxl/i, "E66"],
+  [/^seigle\b/i, "E9"], [/^toast xxl coup/i, "E63"], [/^toast xxl/i, "E64"], [/^viennois choco/i, "E28"],
+];
+// Rapprochements vérifiés à la main (onglet de la fiche -> ID LGL). null = absent de la base LGL (à vérifier).
+const FORCE_CHG = {
+  "Superette 68": "87", "Total Riviéra": "609", "Kim Marché": "533", "Comptoir RS": "672", "Auchan Q. Ferry": "591",
+  "Cin SARL Myshop": "452", "Géant Ste Marie": "61", "Carrefour Market N'Géa": "152", "Michel Ange Supermarket": "68",
+  "Carrefour Market Orphelinat": "45", "Val Plaisance": "146", "Oceania": "178", "Bikini": "63", "Mobil Conception": "568",
+  "Mobil PDF": "78", "Ah Yen": "330", "Chez Loulou": "104", "Géant Mall": "171", "Total Zac Panda": "279",
+  "Mobil Koutio": "544", "Best Supermarket": "89", "LS Kandy": "668", "Cagou Drive Top Store": "324",
+  "Hyper U Païta": "689", "Korail Païta": "157", "Destock NC": "165", "Emilie La Foa": "268", "LS Tomo": "765",
+  "U Express Q. Latin": null, "U Express Alma": null, "Cosy Foch": null, "Mobil VDC": null, "K'You du Pacific": null, "Eco Marché": null,
+};
+const chargements = []; const libellesInconnus = new Set();
+for (let i = 1; i <= 9; i++) {
+  const f = path.join(DIR_CHG, `Livreur ${i}.xlsx`);
+  if (!fs.existsSync(f)) continue;
+  for (const [onglet, a] of Object.entries(rows(f))) {
+    const h = a.findIndex((r) => r.slice(1).some((c) => JOURS.includes(String(c).trim().toLowerCase())));
+    if (h < 0) continue;
+    const cols = {}; a[h].forEach((c, k) => { const j = String(c).trim().toLowerCase(); if (k > 0 && JOURS.includes(j)) cols[j] = k; });
+    const jours = {}; const produits = new Set();
+    for (const r of a.slice(h + 1)) {
+      const lab = String(r[0]).trim();
+      if (!lab) continue;
+      if (/QUANTITE CHARG/i.test(lab)) break; // fin du bloc NORMAL
+      const regle = MAP_CHG.find(([re]) => re.test(lab));
+      if (!regle) { libellesInconnus.add(lab); continue; }
+      for (const [j, k] of Object.entries(cols)) {
+        const q = Math.round(Number(r[k]) || 0);
+        if (q > 0) { (jours[j] = jours[j] || { lignes: [], texte: "" }).lignes.push({ produitId: regle[1], qte: q }); produits.add(regle[1]); }
+      }
+    }
+    if (produits.size) chargements.push({ livreurNum: i, onglet, nomFiche: String(a[h][0]).trim(), jours, produits: [...produits] });
+  }
+}
+// Rapprochement strict : tous les mots significatifs du nom de la fiche doivent se retrouver dans le nom LGL
+// (parenthèses comprises). Un seul candidat accepté, sinon rapprochement manuel via FORCE_CHG.
+const normP = (s) => String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().replace(/[^A-Z0-9]+/g, " ").trim();
+const ABREV = { LP: "LEADER", MT: "MONT", STE: "SAINTE", Q: "QUARTIER", ALIM: "ALIMENTATION", SUP: "SUPERMARCHE", LS: "LS" };
+const motsP = (s) => normP(s).split(" ").filter((w) => w && !["DE", "DU", "LA", "LE", "LES", "CHEZ", "SARL", "D", "L", "ET"].includes(w)).map((w) => ABREV[w] || w);
+function strict(nom, pool) {
+  const mt = motsP(nom); if (!mt.length) return null;
+  const ok = pool.filter((c) => { const mc = motsP(c.nom); return mt.every((w) => mc.some((x) => x === w || (w.length >= 4 && x.length >= 4 && (x.startsWith(w) || w.startsWith(x))))); });
+  return ok.length === 1 ? ok[0] : null;
+}
+let chgOk = 0; const chgKo = [];
+for (const ch of chargements) {
+  let c = ch.onglet in FORCE_CHG ? (FORCE_CHG[ch.onglet] && resultat.get(FORCE_CHG[ch.onglet])) : undefined;
+  if (c === undefined) {
+    const pool = [...resultat.values()].filter((x) => tourneeNum(x.tournee) === ch.livreurNum);
+    c = strict(ch.onglet, pool) || strict(ch.nomFiche, pool) || strict(ch.onglet, [...resultat.values()]) || strict(ch.nomFiche, [...resultat.values()]);
+  }
+  if (!c) { chgKo.push(`Livreur ${ch.livreurNum} — ${ch.onglet}`); continue; }
+  chgOk++;
+  c.ficheChargement = ch.onglet;
+  // Fusion avec les commandes d'office (snacking) déjà présentes
+  c.habitudes = c.habitudes || {};
+  for (const [j, v] of Object.entries(ch.jours)) {
+    const ex = c.habitudes[j] || { lignes: [], texte: "" };
+    ex.lignes = [...ex.lignes, ...v.lignes];
+    c.habitudes[j] = ex;
+  }
+}
+
+// Liste des produits proposés à chaque client = produits de ses chargements + commandes d'office
+for (const c of resultat.values()) {
+  const ids = new Set(Object.values(c.habitudes || {}).flatMap((j) => j.lignes.map((l) => l.produitId)));
+  if (ids.size) c.produits = [...ids];
+}
+
 // Nom du livreur par numéro (déduit des feuilles CLIENTS LGL)
 const livreurs = {};
 for (const i of infos.values()) if (i.livreurNum && i.livreurNom) livreurs[i.livreurNum] = i.livreurNom;
@@ -181,3 +263,7 @@ console.log("Rapprochements :"); avecHab.forEach((c) => console.log(`  ${c.nomTa
 console.log("Non rapprochés :", nonTrouves);
 const textes = new Set(); avecHab.forEach((c) => Object.values(c.habitudes).forEach((j) => j.texte && textes.add(j.texte)));
 console.log("Mentions non converties :", [...textes]);
+console.log(`Fiches de chargement : ${chgOk}/${chargements.length} rapprochées · clients avec liste de produits : ${out.clients.filter((c) => c.produits).length}`);
+console.log("Fiches non rapprochées :", chgKo);
+console.log("Libellés de chargement inconnus :", [...libellesInconnus]);
+console.log("Rapprochements chargements :"); out.clients.filter((c) => c.ficheChargement).forEach((c) => console.log(`  ${c.ficheChargement}  ->  ${c.nom} [${c.id}]`));

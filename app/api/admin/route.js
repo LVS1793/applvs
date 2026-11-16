@@ -70,7 +70,7 @@ export async function POST(req) {
       const c = parId.get(String(s.id)) || { id: String(s.id) };
       Object.assign(c, {
         nom: s.nom, tournee: s.tournee || "Sans tournée", livreur: s.livreur || null, type: s.type || null,
-        paiement: s.paiement || c.paiement || "compte", habitudes: s.habitudes || null, remarque: s.remarque || null,
+        paiement: s.paiement || c.paiement || "compte", habitudes: s.habitudes || null, remarque: s.remarque || null, produits: s.produits || null,
         mode: c.mode || (/fournil/i.test(s.tournee || "") ? "retrait" : "livraison"),
       });
       parId.set(c.id, c); n++;

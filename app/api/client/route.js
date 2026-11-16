@@ -21,7 +21,7 @@ export async function GET() {
       const c = liste.find((x) => x.id === s.id);
       if (c) moi = {
         id: c.id, nom: c.nom, paiement: c.paiement, tournee: c.tournee, mode: c.mode || "livraison",
-        livreur: c.livreur || null, type: c.type || null, habitudes: c.habitudes || null, remarque: c.remarque || null,
+        livreur: c.livreur || null, type: c.type || null, habitudes: c.habitudes || null, remarque: c.remarque || null, produits: c.produits || null,
       };
     }
     historique = await get(`hist:${s.comptant ? "cpt:" + s.nom : s.id}`, []);
