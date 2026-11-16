@@ -84,6 +84,7 @@ function Espace({ etat, recharger }) {
 const Decoupe = ({ d }) => d ? <span><span className="pastille" style={{ background: d.couleur }} />{d.nom}</span> : null;
 const Statut = ({ c }) => c.statut === "annulee" ? <span className="badge rouge">Annulée</span>
   : c.statut === "a_payer" ? <span className="badge ambre">Non payée</span>
+  : c.paiement === "livraison" ? <span className="badge ambre">À encaisser</span>
   : <span className="badge vert">{c.paiement === "comptant" ? "Payée" : "Compte"}</span>;
 
 function Commandes({ cmds, coul, patch, date }) {
@@ -186,12 +187,30 @@ function Livreurs({ cmds, coul, date }) {
           <option value="">Toutes les tournées</option>
           {tournees.map((x) => <option key={x}>{x}</option>)}
         </select>
-        <p className="muted">Impression : une page par commande, regroupées par livreur.</p>
+        <p className="muted">Impression : une feuille par livreur, avec toutes ses commandes à la suite.</p>
       </div>
-      {liste.map((c) => (
-        <div className="card saut" key={c.id}>
-          <div className="row"><b style={{ fontSize: 18 }}>{c.tournee}{c.livreur ? ` (${c.livreur})` : ""}</b><span style={{ textAlign: "right" }}>{frDate(date)}</span></div>
-          <h2 style={{ margin: "8px 0" }}>{c.clientNom}</h2>
+      {[...new Set(liste.map((c) => c.tournee))].map((tr) => {
+        const cs = liste.filter((c) => c.tournee === tr);
+        const liv = cs.find((c) => c.livreur)?.livreur;
+        return (
+          <section className="saut" key={tr}>
+            <div className="row" style={{ borderBottom: "3px solid #000", padding: "6px 0", marginTop: 16 }}>
+              <h2 style={{ margin: 0 }}>{tr}{liv ? ` — ${liv}` : ""}</h2>
+              <span style={{ textAlign: "right" }}>{frDate(date)} · {cs.length} client(s)</span>
+            </div>
+            {cs.map((c) => <CommandeLivreur key={c.id} c={c} coul={coul} />)}
+          </section>
+        );
+      })}
+      {!liste.length && <p className="muted">Aucune commande.</p>}
+    </>
+  );
+}
+
+function CommandeLivreur({ c, coul }) {
+  return (
+        <div className="card">
+          <h3 style={{ margin: "0 0 4px" }}>{c.clientNom}</h3>
           <p>{c.mode === "retrait" ? "Retrait au fournil" : "Livraison"} · <Statut c={c} /> {((c.paiement === "comptant" && c.statut === "a_payer") || c.paiement === "livraison") && <b> — À ENCAISSER {xpf(c.ttc)}</b>}</p>
           <table>
             <thead><tr><th className="n">Qté</th><th>Produit</th><th>Découpe</th><th>✓</th></tr></thead>
@@ -208,13 +227,10 @@ function Livreurs({ cmds, coul, date }) {
           </table>
           {c.supplement && <p><b>➕ Supplément : {c.supplement}</b></p>}
           {c.note && <p>📝 {c.note}</p>}
-          <div className="okbar" style={{ marginTop: 16 }}>
+          <div className="okbar" style={{ marginTop: 8, padding: 6 }}>
             <span style={{ flex: 1 }}>Produit : ☐ OK &nbsp;&nbsp; Par : ____________ &nbsp;&nbsp; Chargé : ☐</span>
           </div>
         </div>
-      ))}
-      {!liste.length && <p className="muted">Aucune commande.</p>}
-    </>
   );
 }
 
@@ -266,7 +282,7 @@ function Clients({ etat, recharger }) {
           </div>
           <div className="row">
             <div><label>Tournée</label><select value={edit.tournee} onChange={(e) => setEdit({ ...edit, tournee: e.target.value })}>{[...new Set([edit.tournee, ...TOURNEES])].map((x) => <option key={x}>{x}</option>)}</select></div>
-            <div><label>Paiement</label><select value={edit.paiement} onChange={(e) => setEdit({ ...edit, paiement: e.target.value })}><option value="compte">Compte (LGL)</option><option value="comptant">Comptant (paiement en ligne)</option></select></div>
+            <div><label>Paiement</label><select value={edit.paiement} onChange={(e) => setEdit({ ...edit, paiement: e.target.value })}><option value="compte">Compte (relevé mensuel LGL)</option><option value="livraison">Règlement à la livraison</option><option value="comptant">Comptant (paiement en ligne)</option></select></div>
           </div>
           <div className="row">
             <div><label>Mode par défaut</label><select value={edit.mode || "livraison"} onChange={(e) => setEdit({ ...edit, mode: e.target.value })}><option value="livraison">Livraison</option><option value="retrait">Retrait</option></select></div>
@@ -279,13 +295,13 @@ function Clients({ etat, recharger }) {
           </div>
         </div>
       )}
-      <div className="card">
+      <div className="card table-scroll">
         <table>
-          <thead><tr><th>ID</th><th>Nom</th><th>Tournée</th><th>Livreur</th><th>Paiement</th><th>Habitudes</th><th>Code</th></tr></thead>
+          <thead><tr><th>ID</th><th>Nom</th><th className="hide-mobile">Tournée</th><th>Livreur</th><th className="hide-mobile">Paiement</th><th className="hide-mobile">Habitudes</th><th className="hide-mobile">Code</th></tr></thead>
           <tbody>
             {liste.map((c) => (
               <tr key={c.id} onClick={() => setEdit({ ...c, code: "" })} style={{ cursor: "pointer" }}>
-                <td>{c.id}</td><td>{c.nom}</td><td>{c.tournee}</td><td>{c.livreur || ""}</td><td>{c.paiement}</td><td>{c.habitudes ? Object.keys(c.habitudes).map((j) => j.slice(0, 3)).join(" ") : ""}</td><td>{c.aCode ? "personnalisé" : <span className="badge">= ID</span>}</td>
+                <td>{c.id}</td><td>{c.nom}</td><td className="hide-mobile">{c.tournee}</td><td>{c.livreur || ""}</td><td className="hide-mobile">{c.paiement}</td><td className="hide-mobile">{c.habitudes ? Object.keys(c.habitudes).map((j) => j.slice(0, 3)).join(" ") : ""}</td><td className="hide-mobile">{c.aCode ? "personnalisé" : <span className="badge">= ID</span>}</td>
               </tr>
             ))}
           </tbody>

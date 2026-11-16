@@ -63,7 +63,11 @@ export default function Client() {
   const charger = () => api("/api/client").then(setEtat).catch((e) => setMsg(e.message));
   useEffect(() => {
     const u = new URLSearchParams(location.search);
-    if (u.get("paye")) {
+    if (u.get("paye") && !u.get("sid")) {
+      setMsg(u.get("vads_trans_status") && !["AUTHORISED", "CAPTURED", "ACCEPTED"].includes(u.get("vads_trans_status"))
+        ? "Paiement non abouti : la commande n'est pas validée." : "✅ Merci ! Paiement reçu, votre commande est enregistrée.");
+      history.replaceState(null, "", "/client");
+    } else if (u.get("paye")) {
       api(`/api/pay?date=${u.get("date")}&id=${u.get("id")}&sid=${u.get("sid")}`)
         .then((r) => setMsg(r.ok ? "✅ Paiement reçu, commande confirmée. Merci !" : "Paiement non confirmé : appelez La Vie Saine."))
         .catch(() => setMsg("Paiement non confirmé : appelez La Vie Saine."));
@@ -140,6 +144,7 @@ function Onboarding({ clients, ok }) {
 
 function Commande({ etat, recharger }) {
   const { moi, historique, decoupes } = etat;
+  const enLigne = etat.paiementEnLigne && (moi.comptant || moi.paiement === "comptant");
   const [mode, setMode] = useState(moi.mode || (moi.tournee === "Fournil" ? "retrait" : "livraison"));
   const [lignes, setLignes] = useState({}); // produitId -> { qte, decoupe }
   const [date, setDate] = useState("");
@@ -187,6 +192,14 @@ function Commande({ etat, recharger }) {
     try {
       const r = await api("/api/orders", { method: "POST", body: JSON.stringify({ date, mode, note, lignes: tab, supplement: supp || "" }) });
       if (r.checkoutUrl) { location.href = r.checkoutUrl; return; }
+      if (r.formulaire) { // PayZen : envoi du formulaire signé vers la page de paiement de la banque
+        const f = document.createElement("form");
+        f.method = "POST"; f.action = r.formulaire.action;
+        for (const [k, v] of Object.entries(r.formulaire.champs)) {
+          const i = document.createElement("input"); i.type = "hidden"; i.name = k; i.value = v; f.appendChild(i);
+        }
+        document.body.appendChild(f); f.submit(); return;
+      }
       setFini(r.commande); recharger();
     } catch (e) { setErr(e.message); }
     setEnvoi(false);
@@ -205,7 +218,7 @@ function Commande({ etat, recharger }) {
       <h2>Bonjour {moi.nom}</h2>
       {!moi.comptant && <MonEspace moi={moi} mode={mode} />}
       <p className="muted">
-        {moi.comptant || moi.paiement === "comptant" ? "Paiement en ligne à la commande." : moi.paiement === "livraison" ? "Règlement à la livraison." : "Facturé sur votre compte (relevé LGL)."} Commandes avant {HEURE_LIMITE} h :
+        {enLigne ? "Paiement en ligne à la commande." : moi.paiement === "livraison" || moi.paiement === "comptant" ? "Règlement à la livraison." : "Facturé sur votre compte (relevé LGL)."} Commandes avant {HEURE_LIMITE} h :
         24 h à l'avance pour le snacking, 48 h pour les pains emballés. Lundi : commander le samedi avant 13 h.
       </p>
 
@@ -222,17 +235,18 @@ function Commande({ etat, recharger }) {
           <div>
             <label>Mode</label>
             <select value={mode} onChange={(e) => setMode(e.target.value)}>
-              <option value="livraison">Livraison (min. 3 000 XPF)</option>
-              <option value="retrait">Retrait au fournil (6 h – 12 h)</option>
+              <option value="livraison">Livraison</option>
+              <option value="retrait">Retrait fournil</option>
             </select>
           </div>
           <div>
             <label>Date</label>
             <select value={date} onChange={(e) => setDate(e.target.value)}>
-              {dates.map((d) => <option key={d} value={d}>{frDate(d)}</option>)}
+              {dates.map((d) => <option key={d} value={d}>{new Date(d + "T12:00:00Z").toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" })}</option>)}
             </select>
           </div>
         </div>
+        <p className="muted" style={{ margin: "6px 0 0" }}>{mode === "livraison" ? "Livraison le matin, minimum 3 000 XPF HT." : "Retrait au fournil de 6 h à 12 h, lundi au vendredi."}</p>
       </div>
 
       <div className="tabs">
@@ -284,7 +298,7 @@ function Commande({ etat, recharger }) {
             <b style={{ textAlign: "right" }}>TTC {xpf(t.ttc)}</b>
           </div>
           <button className="primaire gros" disabled={(!tab.length && !supp?.trim()) || !date || envoi} onClick={valider}>
-            {moi.comptant || moi.paiement === "comptant" ? `Payer ${xpf(t.ttc)} et commander` : "Valider la commande"}
+            {enLigne ? `Payer ${xpf(t.ttc)} et commander` : "Valider la commande"}
           </button>
         </div>
       </div>

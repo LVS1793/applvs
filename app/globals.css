@@ -26,6 +26,7 @@ button:disabled { opacity: .5; cursor: default; }
 .err { background: #fdecea; color: var(--rouge); padding: 10px; border-radius: 8px; margin: 8px 0; }
 .ok { background: var(--vert-clair); color: var(--vert); padding: 10px; border-radius: 8px; margin: 8px 0; }
 .tabs { display: flex; gap: 6px; overflow-x: auto; margin: 12px 0; }
+.tabs button { white-space: nowrap; flex: none; }
 .tabs button.actif { background: var(--vert); color: #fff; border-color: var(--vert); }
 .choix { display: grid; gap: 12px; margin-top: 24px; }
 .choix a { display: block; text-decoration: none; color: inherit; background: #fff; border: 2px solid var(--bord); border-radius: 14px; padding: 22px; }
@@ -49,6 +50,21 @@ td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
 .okbar.fait { border-color: var(--vert); background: var(--vert-clair); }
 .recherche { margin-bottom: 8px; }
 .print-only { display: none; }
+/* Téléphone */
+input, select, textarea { font-size: 16px !important; } /* évite le zoom automatique sur iPhone */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+button { min-height: 40px; touch-action: manipulation; }
+html { -webkit-text-size-adjust: 100%; }
+@media (max-width: 600px) {
+  .wrap { padding: 12px 12px 140px; }
+  header.bar { padding: 8px 12px; }
+  header.bar h1 img { height: 32px; }
+  h2 { font-size: 18px; }
+  .card { padding: 12px; }
+  th, td { padding: 6px 4px; }
+  .hide-mobile { display: none; }
+  .row > * { min-width: 120px; }
+}
 .liste-etab { max-height: 280px; overflow-y: auto; border: 1px solid var(--bord); border-radius: 8px; }
 .liste-etab button { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--bord); border-radius: 0; padding: 12px; }
 .liste-etab button:active, .liste-etab button:hover { background: var(--vert-clair); }
@@ -61,6 +77,8 @@ td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
   .wrap { max-width: none; padding: 0; }
   .card { border: 1px solid #000; break-inside: avoid; }
   .saut { break-after: page; }
+  .saut:last-of-type { break-after: auto; }
+  .card { padding: 6px 8px; margin: 6px 0; }
   .pastille, td[style] { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   th, td { border-bottom: 1px solid #000; padding: 4px; }
 }

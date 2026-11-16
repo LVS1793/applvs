@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
-import { clients, commandesDuJour, enregistrerCommandes, get, set } from "@/lib/store";
+import { clients, commandesDuJour, ecrireCommande, lireCommande, get, set } from "@/lib/store";
 import { sessionClient, estAdmin } from "@/lib/auth";
 import { PRODUITS_BY_ID, totaux, DECOUPES_DEFAUT } from "@/lib/catalog";
 import { verifierDate } from "@/lib/rules";
-import { creerCheckout } from "@/lib/stripe";
+import { creerCheckout, paiementActif } from "@/lib/stripe";
+import { payzenActif, formulairePayzen } from "@/lib/payzen";
 
 export const dynamic = "force-dynamic";
 
@@ -70,17 +71,18 @@ export async function POST(req) {
   ]);
   cmd.inhabituels = connus.size ? lignes.filter((l) => !connus.has(l.produitId)).map((l) => l.produitId) : [];
 
-  let checkoutUrl = null;
-  if (cmd.paiement === "comptant") {
+  let checkoutUrl = null, formulaire = null;
+  if (cmd.paiement === "comptant" && cmd.ttc > 0 && payzenActif) {
+    formulaire = formulairePayzen(cmd, new URL(req.url).origin);
+  } else if (cmd.paiement === "comptant" && cmd.ttc > 0 && paiementActif) {
     const r = await creerCheckout(cmd, new URL(req.url).origin);
     if (r.erreur) return NextResponse.json({ erreur: r.erreur }, { status: 503 });
     cmd.stripeSession = r.id;
     checkoutUrl = r.url;
   }
+  // Sans paiement en ligne configuré, la commande comptant est enregistrée « à encaisser » (à la livraison / au retrait).
 
-  const liste = await commandesDuJour(cmd.date);
-  liste.push(cmd);
-  await enregistrerCommandes(cmd.date, liste);
+  await ecrireCommande(cmd);
 
   // Historique client (pré-remplissage)
   const hk = `hist:${s.comptant ? "cpt:" + s.nom : s.id}`;
@@ -88,20 +90,25 @@ export async function POST(req) {
   hist.unshift({ id: cmd.id, date: cmd.date, mode, lignes: lignes.map(({ produitId, qte, decoupe }) => ({ produitId, qte, decoupe })), ttc: cmd.ttc, statut: cmd.statut });
   await set(hk, hist.slice(0, 15));
 
-  return NextResponse.json({ commande: cmd, checkoutUrl });
+  return NextResponse.json({ commande: cmd, checkoutUrl, formulaire });
 }
 
 // PATCH (La Vie Saine) : { date, id, action: "ok" | "ligne" | "annuler" | "payee", index, par }
 export async function PATCH(req) {
   if (!estAdmin()) return NextResponse.json({ erreur: "Non autorisé" }, { status: 401 });
   const b = await req.json();
-  const liste = await commandesDuJour(b.date);
-  const c = liste.find((x) => x.id === b.id);
+  const c = await lireCommande(b.date, b.id);
   if (!c) return NextResponse.json({ erreur: "Commande introuvable" }, { status: 404 });
-  if (b.action === "ligne") c.lignes[b.index].ok = !c.lignes[b.index].ok;
+  if (b.action === "ligne") {
+    if (!c.lignes[b.index]) return NextResponse.json({ erreur: "Ligne introuvable" }, { status: 400 });
+    c.lignes[b.index].ok = !c.lignes[b.index].ok;
+  }
   if (b.action === "ok") c.okProduit = c.okProduit ? null : { par: String(b.par || "").slice(0, 40), le: new Date().toISOString() };
-  if (b.action === "annuler") c.statut = c.statut === "annulee" ? "confirmee" : "annulee";
+  if (b.action === "annuler") {
+    if (c.statut === "annulee") c.statut = c.statutAvant || "confirmee";
+    else { c.statutAvant = c.statut; c.statut = "annulee"; }
+  }
   if (b.action === "payee") c.statut = "confirmee";
-  await enregistrerCommandes(b.date, liste);
+  await ecrireCommande(c);
   return NextResponse.json({ commande: c });
 }

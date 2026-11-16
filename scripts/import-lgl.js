@@ -29,6 +29,7 @@ const mots = (s) => norm(s).split(" ").filter((w) => w.length > 1 && !STOP.has(w
 // ---------- 1. Base LGL ----------
 const base = Object.values(rows(SRC.base))[0].slice(1)
   .filter((r) => r[0] !== "" && r[1])
+  .filter((r) => !/^\s*arr[eêé]t/i.test(String(r[2] || ""))) // « Arrêt » = anciens clients
   .map((r) => ({ id: String(r[0]).trim(), nom: String(r[1]).trim(), tournee: String(r[2] || "").trim() || "Sans tournée" }));
 
 // ---------- 2. CLIENTS LGL 2025 (livreur, type, encaissement) ----------
