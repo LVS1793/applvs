@@ -30,7 +30,7 @@ function Login({ ok }) {
   };
   return (
     <>
-      <header className="bar"><h1>Espace LA VIE SAINE</h1></header>
+      <header className="bar"><h1><img src="/logo-lvs.png" alt="La Vie Saine" />Espace équipe</h1></header>
       <form className="wrap" onSubmit={go}>
         <div className="card">
           <label>Mot de passe équipe</label>
@@ -57,7 +57,7 @@ function Espace({ etat, recharger }) {
 
   return (
     <>
-      <header className="bar"><h1>Espace LA VIE SAINE</h1><button onClick={sortir}>Sortir</button></header>
+      <header className="bar"><h1><img src="/logo-lvs.png" alt="La Vie Saine" />Espace équipe</h1><button onClick={sortir}>Sortir</button></header>
       <main className="wrap wide">
         {!etat.persistant && <div className="err no-print">⚠️ Base de données non connectée : les commandes ne sont pas conservées durablement (ajouter Upstash Redis sur Vercel).</div>}
         <div className="tabs">

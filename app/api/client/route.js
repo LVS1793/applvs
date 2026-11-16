@@ -31,7 +31,7 @@ export async function GET() {
 // POST : connexion { clientId, code } ou client au comptant { comptant: true, nom }
 export async function POST(req) {
   const b = await req.json();
-  if (b.comptant) {
+  if (b.comptant && process.env.AUTORISER_SANS_COMPTE === "1") {
     const nom = String(b.nom || "").trim().slice(0, 80);
     if (nom.length < 2) return NextResponse.json({ erreur: "Indiquez le nom du snack ou de l'entreprise." }, { status: 400 });
     setSession("lvs_client", { comptant: true, nom });

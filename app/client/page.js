@@ -78,7 +78,7 @@ export default function Client() {
   return (
     <>
       <header className="bar">
-        <h1>🥖 Commander — La Vie Saine</h1>
+        <h1><img src="/logo-lvs.png" alt="La Vie Saine" />Commander</h1>
         {etat?.moi && <button onClick={deconnexion}>Changer</button>}
       </header>
       <main className="wrap">
@@ -106,12 +106,9 @@ function Onboarding({ clients, ok }) {
   return (
     <>
       <h2>Bienvenue 👋</h2>
-      <div className="tabs">
-        <button className={onglet === "compte" ? "actif" : ""} onClick={() => setOnglet("compte")}>J'ai un compte client</button>
-        <button className={onglet === "comptant" ? "actif" : ""} onClick={() => setOnglet("comptant")}>Je paie au comptant</button>
-      </div>
+      <p>Connectez-vous avec votre compte client.</p>
       {err && <div className="err">{err}</div>}
-      {onglet === "compte" ? (
+      {onglet === "compte" && (
         <div className="card">
           <label>Votre établissement</label>
           <input className="recherche" placeholder="Rechercher (ex. snack…)" value={filtre} onChange={(e) => setFiltre(e.target.value)} />
@@ -123,16 +120,8 @@ function Onboarding({ clients, ok }) {
           <input inputMode="numeric" value={code} onChange={(e) => setCode(e.target.value)} />
           <button className="primaire gros" style={{ marginTop: 14 }} disabled={!id || !code} onClick={() => go({ clientId: id, code })}>Entrer</button>
         </div>
-      ) : (
-        <div className="card">
-          <label>Nom du snack / de l'entreprise</label>
-          <input value={nom} onChange={(e) => setNom(e.target.value)} />
-          <p className="muted">Paiement en ligne obligatoire à la commande.</p>
-          <button className="primaire gros" disabled={nom.trim().length < 2} onClick={() => go({ comptant: true, nom })}>Continuer</button>
-        </div>
       )}
-      <p className="muted">Particulier ? Les prix sont sur notre site internet ou dans la liste de tarifs papier.</p>
-    </>
+      <p className="muted">Pas encore de compte ? Appelez La Vie Saine pour l'ouvrir et recevoir votre code.</p>    </>
   );
 }
 
