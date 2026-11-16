@@ -184,8 +184,8 @@ function Commande({ etat, recharger }) {
   // Panier vide + date choisie : on propose automatiquement la commande habituelle de ce jour
   useEffect(() => { if (date && !tab.length && habitudes[jourDe(date)]) appliquerHabitude(jourDe(date)); }, [date]);
   // Catalogue limité aux produits déjà achetés (fiches de chargement, commandes d'office, commandes passées).
-  // Un client sans aucun historique voit le catalogue complet.
-  const restreint = !!(moi.produits && moi.produits.length);
+  // Un client sans aucun historique ne voit aucun produit (il passe par la commande supplémentaire ou appelle).
+  const restreint = true;
   const autorises = new Set([...(moi.produits || []), ...mesIds]);
   const visibles = PRODUITS.filter((p) => {
     if (restreint && !autorises.has(p.id) && !lignes[p.id]?.qte) return false;
@@ -266,7 +266,7 @@ function Commande({ etat, recharger }) {
       </div>
 
       {restreint ? (
-        <h3>Mes produits ({autorises.size})</h3>
+        autorises.size > 0 && <h3>Mes produits ({autorises.size})</h3>
       ) : (
         <div className="tabs">
           {mesIds.size > 0 && <button className={cat === "mes" ? "actif" : ""} onClick={() => setCat("mes")}>Mes produits</button>}
@@ -275,9 +275,16 @@ function Commande({ etat, recharger }) {
         </div>
       )}
       {(!restreint || autorises.size > 12) && <input className="recherche" placeholder="🔎 Chercher un produit" value={q} onChange={(e) => setQ(e.target.value)} />}
-      {restreint && <p className="muted" style={{ margin: "0 0 6px" }}>Un autre produit ? Ajoutez-le avec « J'ai une commande supplémentaire » en bas.</p>}
+      {autorises.size === 0 && (
+        <div className="card">
+          <p style={{ marginTop: 0 }}>Aucun produit n'est encore associé à votre compte.</p>
+          <p className="muted">Écrivez votre commande avec « J'ai une commande supplémentaire » ci-dessous, ou appelez-nous pour mettre en place votre commande habituelle.</p>
+          <AppelHabitude />
+        </div>
+      )}
+      {restreint && autorises.size > 0 && <p className="muted" style={{ margin: "0 0 6px" }}>Un autre produit ? Ajoutez-le avec « J'ai une commande supplémentaire » en bas.</p>}
 
-      <div className="card">
+      {autorises.size > 0 && <div className="card">
         {visibles.map((p) => {
           const l = lignes[p.id] || { qte: 0, decoupe: "entier" };
           return (
@@ -295,8 +302,8 @@ function Commande({ etat, recharger }) {
             </div>
           );
         })}
-        {!visibles.length && <p className="muted">Aucun produit.</p>}
-      </div>
+        {!visibles.length && <p className="muted">Aucun produit trouvé.</p>}
+      </div>}
 
       {habDuJour && differeHabitude && (
         <div className="card" style={{ background: "#fffbea" }}>
