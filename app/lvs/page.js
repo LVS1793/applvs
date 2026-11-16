@@ -277,7 +277,7 @@ function Clients({ etat, recharger }) {
       {edit && (
         <div className="card">
           <div className="row">
-            <div><label>ID LGL</label><input value={edit.id} onChange={(e) => setEdit({ ...edit, id: e.target.value })} /></div>
+            <div><label>ID LGL (= code client)</label><input value={edit.id} onChange={(e) => setEdit({ ...edit, id: e.target.value })} /></div>
             <div><label>Nom</label><input value={edit.nom} onChange={(e) => setEdit({ ...edit, nom: e.target.value })} /></div>
           </div>
           <div className="row">
@@ -286,7 +286,7 @@ function Clients({ etat, recharger }) {
           </div>
           <div className="row">
             <div><label>Mode par défaut</label><select value={edit.mode || "livraison"} onChange={(e) => setEdit({ ...edit, mode: e.target.value })}><option value="livraison">Livraison</option><option value="retrait">Retrait</option></select></div>
-            <div><label>Nouveau code (laisser vide = inchangé)</label><input value={edit.code || ""} onChange={(e) => setEdit({ ...edit, code: e.target.value })} /></div>
+            <div><label>Code client : {edit.aCode ? "personnalisé" : <b>{edit.id || "ID LGL"}</b>} (champ vide = inchangé)</label><input value={edit.code || ""} onChange={(e) => setEdit({ ...edit, code: e.target.value })} /></div>
           </div>
           <div className="row" style={{ marginTop: 10 }}>
             <button className="primaire" disabled={!edit.id || !edit.nom} onClick={enregistrer}>Enregistrer</button>
