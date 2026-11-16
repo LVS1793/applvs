@@ -3,19 +3,41 @@ import crypto from "crypto";
 import { clients, commandesDuJour, ecrireCommande, lireCommande, get, set } from "@/lib/store";
 import { sessionClient, estAdmin } from "@/lib/auth";
 import { PRODUITS_BY_ID, totaux, DECOUPES_DEFAUT } from "@/lib/catalog";
-import { verifierDate } from "@/lib/rules";
+import { verifierDate, maintenantNC } from "@/lib/rules";
 import { creerCheckout, paiementActif } from "@/lib/stripe";
+import { toutesLesCommandes, officeDuClient, genererOffice, habitudeDuJour, idOffice } from "@/lib/office";
 import { payzenActif, formulairePayzen } from "@/lib/payzen";
 
 export const dynamic = "force-dynamic";
 
 const MINIMUM_LIVRAISON = 3000;
 
-// GET ?date=AAAA-MM-JJ (La Vie Saine)
+// GET ?date=AAAA-MM-JJ (La Vie Saine) : commandes enregistrées + commandes d'office automatiques
+// GET ?mes=1 (client connecté) : ses commandes des 8 prochains jours ouvrés (commandes d'office comprises)
 export async function GET(req) {
+  const u = new URL(req.url).searchParams;
+  if (u.get("mes")) {
+    const s = sessionClient();
+    if (!s || s.comptant) return NextResponse.json({ erreur: "Connectez-vous d'abord." }, { status: 401 });
+    const client = (await clients()).find((c) => c.id === s.id);
+    if (!client) return NextResponse.json({ erreur: "Compte introuvable." }, { status: 404 });
+    const now = maintenantNC();
+    const jours = [];
+    const d = new Date(now.date + "T12:00:00Z");
+    while (jours.length < 8) {
+      d.setUTCDate(d.getUTCDate() + 1);
+      if (d.getUTCDay() !== 0) jours.push(d.toISOString().slice(0, 10));
+    }
+    const res = await Promise.all(jours.map(async (date) => {
+      const office = await officeDuClient(client, date);
+      const autres = (await commandesDuJour(date)).filter((c) => c.clientId === client.id && !c.office);
+      const aEmb = (office?.lignes || []).some((l) => PRODUITS_BY_ID[l.produitId]?.cat === "emballe");
+      return { date, office, autres, modifiable: !verifierDate(date, office?.mode || "livraison", aEmb, now) };
+    }));
+    return NextResponse.json({ jours: res });
+  }
   if (!estAdmin()) return NextResponse.json({ erreur: "Non autorisé" }, { status: 401 });
-  const date = new URL(req.url).searchParams.get("date");
-  return NextResponse.json({ commandes: await commandesDuJour(date) });
+  return NextResponse.json({ commandes: await toutesLesCommandes(u.get("date")) });
 }
 
 // POST : nouvelle commande client
@@ -29,6 +51,22 @@ export async function POST(req) {
   else {
     client = (await clients()).find((c) => c.id === s.id);
     if (!client) return NextResponse.json({ erreur: "Compte introuvable." }, { status: 404 });
+    if (!client.codeHash) return NextResponse.json({ erreur: "Créez d'abord votre mot de passe." }, { status: 403 });
+  }
+
+  // Annuler / rétablir la commande d'office d'un jour (dans les délais)
+  if (b.action === "annulerOffice" || b.action === "retablirOffice") {
+    if (s.comptant) return NextResponse.json({ erreur: "Non autorisé" }, { status: 403 });
+    const o = await officeDuClient(client, b.date);
+    if (!o) return NextResponse.json({ erreur: "Pas de commande d'office ce jour-là." }, { status: 404 });
+    const aEmb = o.lignes.some((l) => PRODUITS_BY_ID[l.produitId]?.cat === "emballe");
+    const err = verifierDate(b.date, o.mode, aEmb);
+    if (err) return NextResponse.json({ erreur: err.replace("Trop tard pour cette date", "Trop tard pour modifier") }, { status: 400 });
+    if (b.action === "annulerOffice" && o.statut !== "annulee") { o.statutAvant = o.statut; o.statut = "annulee"; }
+    if (b.action === "retablirOffice" && o.statut === "annulee") o.statut = o.statutAvant || "confirmee";
+    delete o.auto; o.modifieLe = new Date().toISOString(); o.modifiePar = "client";
+    await ecrireCommande(o);
+    return NextResponse.json({ commande: o });
   }
 
   const mode = b.mode === "retrait" ? "retrait" : "livraison";
@@ -48,8 +86,11 @@ export async function POST(req) {
   if (mode === "livraison" && !suppSeul && t.ht < MINIMUM_LIVRAISON)
     return NextResponse.json({ erreur: `Minimum de livraison : ${MINIMUM_LIVRAISON} XPF HT (actuel : ${t.ht} XPF). Ajoutez des produits ou choisissez le retrait au fournil.` }, { status: 400 });
 
+  // Modification de la commande d'office du jour : remplace la version automatique
+  const office = !!b.office && !s.comptant && !!habitudeDuJour(client, b.date);
   const cmd = {
-    id: crypto.randomUUID().slice(0, 8),
+    id: office ? idOffice(client.id) : crypto.randomUUID().slice(0, 8),
+    ...(office ? { office: true, modifieLe: new Date().toISOString(), modifiePar: "client" } : {}),
     date: b.date, mode,
     clientId: client.id, clientNom: client.nom,
     tournee: mode === "retrait" ? "Fournil" : client.tournee || "Sans tournée",
@@ -72,7 +113,8 @@ export async function POST(req) {
   cmd.inhabituels = connus.size ? lignes.filter((l) => !connus.has(l.produitId)).map((l) => l.produitId) : [];
 
   let checkoutUrl = null, formulaire = null;
-  if (cmd.paiement === "comptant" && cmd.ttc > 0 && payzenActif) {
+  if (office) { /* commande d'office : réglée comme d'habitude (relevé ou à la livraison) */ }
+  else if (cmd.paiement === "comptant" && cmd.ttc > 0 && payzenActif) {
     formulaire = formulairePayzen(cmd, new URL(req.url).origin);
   } else if (cmd.paiement === "comptant" && cmd.ttc > 0 && paiementActif) {
     const r = await creerCheckout(cmd, new URL(req.url).origin);
@@ -97,7 +139,12 @@ export async function POST(req) {
 export async function PATCH(req) {
   if (!estAdmin()) return NextResponse.json({ erreur: "Non autorisé" }, { status: 401 });
   const b = await req.json();
-  const c = await lireCommande(b.date, b.id);
+  let c = await lireCommande(b.date, b.id);
+  if (!c && String(b.id).startsWith("off-")) { // commande d'office encore automatique : on la matérialise
+    const cl = (await clients()).find((x) => idOffice(x.id) === b.id);
+    c = cl && genererOffice(cl, b.date);
+    if (c) delete c.auto;
+  }
   if (!c) return NextResponse.json({ erreur: "Commande introuvable" }, { status: 404 });
   if (b.action === "ligne") {
     if (!c.lignes[b.index]) return NextResponse.json({ erreur: "Ligne introuvable" }, { status: 400 });

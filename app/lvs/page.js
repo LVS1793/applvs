@@ -99,7 +99,7 @@ function Commandes({ cmds, coul, patch, date }) {
         <div className="card" key={c.id} style={c.statut === "annulee" ? { opacity: .5 } : null}>
           <div className="row">
             <b>{c.clientNom}</b>
-            <span className="muted" style={{ textAlign: "right" }}>{c.mode === "retrait" ? "Retrait fournil" : c.tournee} · <Statut c={c} /></span>
+            <span className="muted" style={{ textAlign: "right" }}>{c.mode === "retrait" ? "Retrait fournil" : c.tournee} · <Statut c={c} />{c.office && <> · <span className="badge">{c.auto ? "Commande d'office" : "Office modifiée par le " + (c.modifiePar || "client")}</span></>}</span>
           </div>
           {c.inhabituels?.length > 0 && (
             <div className="err">⚠️ Article(s) que ce client ne prend pas habituellement : <b>{c.inhabituels.map((id) => PRODUITS_BY_ID[id] ? libelle(PRODUITS_BY_ID[id]) : id).join(", ")}</b></div>
@@ -286,22 +286,23 @@ function Clients({ etat, recharger }) {
           </div>
           <div className="row">
             <div><label>Mode par défaut</label><select value={edit.mode || "livraison"} onChange={(e) => setEdit({ ...edit, mode: e.target.value })}><option value="livraison">Livraison</option><option value="retrait">Retrait</option></select></div>
-            <div><label>Code client : {edit.aCode ? "personnalisé" : <b>{edit.id || "ID LGL"}</b>} (champ vide = inchangé)</label><input value={edit.code || ""} onChange={(e) => setEdit({ ...edit, code: e.target.value })} /></div>
+            <div><label>Mot de passe du client : {edit.aCode ? "créé par le client" : "pas encore créé (1re connexion avec le numéro seul)"}</label><input value={edit.code || ""} onChange={(e) => setEdit({ ...edit, code: e.target.value })} /></div>
           </div>
           <div className="row" style={{ marginTop: 10 }}>
             <button className="primaire" disabled={!edit.id || !edit.nom} onClick={enregistrer}>Enregistrer</button>
             <button onClick={() => setEdit(null)}>Fermer</button>
+            {edit.aCode && <button onClick={async () => { if (confirm("Réinitialiser le mot de passe ? Le client en recréera un à sa prochaine connexion avec son numéro.")) { await api("/api/admin", { method: "POST", body: JSON.stringify({ action: "client", id: edit.id, resetCode: true }) }); setEdit(null); recharger(); } }}>Réinitialiser le mot de passe</button>}
             <button onClick={async () => { if (confirm("Supprimer ce client ?")) { await api("/api/admin", { method: "POST", body: JSON.stringify({ action: "client", id: edit.id, supprimer: true }) }); setEdit(null); recharger(); } }}>Supprimer</button>
           </div>
         </div>
       )}
       <div className="card table-scroll">
         <table>
-          <thead><tr><th>ID</th><th>Nom</th><th className="hide-mobile">Tournée</th><th>Livreur</th><th className="hide-mobile">Paiement</th><th className="hide-mobile">Habitudes</th><th className="hide-mobile">Code</th></tr></thead>
+          <thead><tr><th>ID</th><th>Nom</th><th className="hide-mobile">Tournée</th><th>Livreur</th><th className="hide-mobile">Paiement</th><th className="hide-mobile">Habitudes</th><th className="hide-mobile">Mot de passe</th></tr></thead>
           <tbody>
             {liste.map((c) => (
               <tr key={c.id} onClick={() => setEdit({ ...c, code: "" })} style={{ cursor: "pointer" }}>
-                <td>{c.id}</td><td>{c.nom}</td><td className="hide-mobile">{c.tournee}</td><td>{c.livreur || ""}</td><td className="hide-mobile">{c.paiement}</td><td className="hide-mobile">{c.habitudes ? Object.keys(c.habitudes).map((j) => j.slice(0, 3)).join(" ") : ""}</td><td className="hide-mobile">{c.aCode ? "personnalisé" : <span className="badge">= ID</span>}</td>
+                <td>{c.id}</td><td>{c.nom}</td><td className="hide-mobile">{c.tournee}</td><td>{c.livreur || ""}</td><td className="hide-mobile">{c.paiement}</td><td className="hide-mobile">{c.habitudes ? Object.keys(c.habitudes).map((j) => j.slice(0, 3)).join(" ") : ""}</td><td className="hide-mobile">{c.aCode ? "✔ créé" : <span className="badge ambre">pas encore</span>}</td>
               </tr>
             ))}
           </tbody>

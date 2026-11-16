@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { clients, get, incrementer, lireCompteur } from "@/lib/store";
+import { clients, get, set, incrementer, lireCompteur } from "@/lib/store";
 import { DECOUPES_DEFAUT } from "@/lib/catalog";
 import { paiementActif } from "@/lib/stripe";
 import { payzenActif } from "@/lib/payzen";
@@ -21,7 +21,7 @@ export async function GET() {
       const c = liste.find((x) => x.id === s.id);
       if (c) moi = {
         id: c.id, nom: c.nom, paiement: c.paiement, tournee: c.tournee, mode: c.mode || "livraison",
-        livreur: c.livreur || null, type: c.type || null, habitudes: c.habitudes || null, remarque: c.remarque || null, produits: c.produits || null,
+        doitCreerCode: !c.codeHash, livreur: c.livreur || null, type: c.type || null, habitudes: c.habitudes || null, remarque: c.remarque || null, produits: c.produits || null,
       };
     }
     historique = await get(`hist:${s.comptant ? "cpt:" + s.nom : s.id}`, []);
@@ -49,12 +49,30 @@ export async function POST(req) {
   const numero = String(b.numero || "").trim();
   const c = (await clientsActifs()).find((x) => x.id === numero);
   if (!c) { await incrementer(kf, 900); return NextResponse.json({ erreur: "Numéro client inconnu. Vérifiez votre numéro ou appelez La Vie Saine." }, { status: 401 }); }
-  // Code personnalisé éventuel (défini dans l'espace équipe) : demandé en plus du numéro
+  // Authentification : numéro client + mot de passe personnel.
+  // Première connexion (aucun mot de passe encore créé) : le numéro suffit, puis le client doit créer son mot de passe.
   if (c.codeHash) {
-    if (!b.code) return NextResponse.json({ besoinCode: true, erreur: "Ce compte demande aussi son code personnel." }, { status: 401 });
-    if (c.codeHash !== hashCode(b.code)) { await incrementer(kf, 900); return NextResponse.json({ besoinCode: true, erreur: "Code incorrect." }, { status: 401 }); }
+    if (!b.code) return NextResponse.json({ besoinCode: true, erreur: "Saisissez votre mot de passe." }, { status: 401 });
+    if (c.codeHash !== hashCode(b.code)) { await incrementer(kf, 900); return NextResponse.json({ besoinCode: true, erreur: "Mot de passe incorrect." }, { status: 401 }); }
   }
   setSession("lvs_client", { id: c.id });
+  return NextResponse.json({ ok: true });
+}
+
+// PUT { nouveauCode, ancienCode? } : création ou changement du mot de passe personnel du client connecté
+export async function PUT(req) {
+  const s = sessionClient();
+  if (!s || s.comptant) return NextResponse.json({ erreur: "Connectez-vous d'abord." }, { status: 401 });
+  const b = await req.json();
+  const nouveau = String(b.nouveauCode || "");
+  if (nouveau.length < 6) return NextResponse.json({ erreur: "Le mot de passe doit faire au moins 6 caractères." }, { status: 400 });
+  const liste = await clients();
+  const c = liste.find((x) => x.id === s.id);
+  if (!c) return NextResponse.json({ erreur: "Compte introuvable." }, { status: 404 });
+  if (nouveau.trim() === c.id) return NextResponse.json({ erreur: "Le mot de passe ne peut pas être votre numéro client." }, { status: 400 });
+  if (c.codeHash && c.codeHash !== hashCode(b.ancienCode)) return NextResponse.json({ erreur: "Ancien mot de passe incorrect." }, { status: 401 });
+  c.codeHash = hashCode(nouveau);
+  await set("clients", liste);
   return NextResponse.json({ ok: true });
 }
 

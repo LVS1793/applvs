@@ -68,6 +68,78 @@ function MonEspace({ moi, mode }) {
   );
 }
 
+// Commandes d'office des prochains jours : déjà en place, le client peut seulement les modifier ou les annuler
+function MesCommandes({ onModifier, rafraichir }) {
+  const [jours, setJours] = useState(null);
+  const [err, setErr] = useState(null);
+  const charger = () => api("/api/orders?mes=1").then((r) => setJours(r.jours)).catch((e) => setErr(e.message));
+  useEffect(() => { charger(); }, [rafraichir]);
+  const action = async (date, a) => {
+    setErr(null);
+    try { await api("/api/orders", { method: "POST", body: JSON.stringify({ action: a, date }) }); charger(); } catch (e) { setErr(e.message); }
+  };
+  if (!jours) return <p className="muted">Chargement de vos commandes…</p>;
+  return (
+    <div className="card">
+      <h3 style={{ marginTop: 0 }}>Mes commandes des prochains jours</h3>
+      <p className="muted" style={{ marginTop: 0 }}>Votre commande d'office est déjà enregistrée : vous n'avez rien à faire. Modifiez-la ou annulez-la seulement si besoin, avant 13 h la veille (2 jours avant pour les pains emballés).</p>
+      {err && <div className="err">{err}</div>}
+      {jours.map(({ date, office, autres, modifiable }) => (
+        <div key={date} className="jour-cmd">
+          <div className="row" style={{ alignItems: "baseline" }}>
+            <b style={{ textTransform: "capitalize" }}>{frDate(date)}</b>
+            <span style={{ textAlign: "right" }}>
+              {!office ? <span className="badge">Pas de commande d'office</span>
+                : office.statut === "annulee" ? <span className="badge rouge">Annulée</span>
+                : office.auto ? <span className="badge vert">Prévue</span>
+                : <span className="badge ambre">Modifiée</span>}
+            </span>
+          </div>
+          {office && office.statut !== "annulee" && (
+            <p className="muted" style={{ margin: "4px 0" }}>
+              {office.lignes.map((l) => `${l.qte} ${PRODUITS_BY_ID[l.produitId] ? PRODUITS_BY_ID[l.produitId].nom : l.produitId}`).join(" · ")} — <b>{xpf(office.ttc)} TTC</b>
+            </p>
+          )}
+          {autres.map((c) => <p key={c.id} className="muted" style={{ margin: "4px 0" }}>➕ Commande en plus : {xpf(c.ttc)} TTC{c.statut === "annulee" ? " (annulée)" : ""}</p>)}
+          {office && (modifiable ? (
+            <div className="row" style={{ marginTop: 6 }}>
+              {office.statut !== "annulee" && <button onClick={() => onModifier(date, office)}>✏️ Modifier</button>}
+              {office.statut !== "annulee"
+                ? <button onClick={() => confirm(`Annuler la commande du ${frDate(date)} ?`) && action(date, "annulerOffice")}>✖ Annuler</button>
+                : <button onClick={() => action(date, "retablirOffice")}>↩ Rétablir</button>}
+            </div>
+          ) : <p className="muted" style={{ margin: "4px 0" }}>🔒 Délai dépassé : pour un changement, appelez le 27 59 82.</p>)}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Première connexion : le client crée son mot de passe personnel
+function CreerMotDePasse({ moi, ok }) {
+  const [a, setA] = useState(""); const [b, setB] = useState(""); const [err, setErr] = useState(null);
+  const go = async (e) => {
+    e.preventDefault(); setErr(null);
+    if (a !== b) return setErr("Les deux mots de passe sont différents.");
+    try { await api("/api/client", { method: "PUT", body: JSON.stringify({ nouveauCode: a }) }); ok(); } catch (x) { setErr(x.message); }
+  };
+  return (
+    <form onSubmit={go}>
+      <h2>Bienvenue {moi.nom}</h2>
+      <p>Pour sécuriser votre compte, créez votre mot de passe personnel. Il vous sera demandé à chaque connexion, avec votre numéro client <b>{moi.id}</b>.</p>
+      {err && <div className="err">{err}</div>}
+      <div className="card">
+        <label>Nouveau mot de passe (6 caractères minimum)</label>
+        <input type="password" autoComplete="new-password" value={a} onChange={(e) => setA(e.target.value)} autoFocus />
+        <label>Confirmez le mot de passe</label>
+        <input type="password" autoComplete="new-password" value={b} onChange={(e) => setB(e.target.value)} />
+        <button className="primaire gros" style={{ marginTop: 14 }} disabled={a.length < 6 || !b}>Créer mon mot de passe</button>
+      </div>
+      <p className="muted">Mot de passe oublié plus tard ? Appelez le 27 59 82 pour le réinitialiser.</p>
+    </form>
+  );
+}
+
 export default function Client() {
   const [etat, setEtat] = useState(null);
   const [msg, setMsg] = useState(null);
@@ -98,7 +170,7 @@ export default function Client() {
       </header>
       <main className="wrap">
         {msg && <div className={msg.startsWith("✅") ? "ok" : "err"}>{msg}</div>}
-        {!etat ? <p className="muted">Chargement…</p> : etat.moi ? <Commande etat={etat} recharger={charger} /> : <Onboarding ok={charger} />}
+        {!etat ? <p className="muted">Chargement…</p> : etat.moi ? (etat.moi.doitCreerCode && !etat.moi.comptant ? <CreerMotDePasse moi={etat.moi} ok={charger} /> : <Commande etat={etat} recharger={charger} />) : <Onboarding ok={charger} />}
       </main>
     </>
   );
@@ -156,11 +228,13 @@ function Commande({ etat, recharger }) {
   const [err, setErr] = useState(null);
   const [envoi, setEnvoi] = useState(false);
   const [fini, setFini] = useState(null);
+  const [edition, setEdition] = useState(null); // { date } quand le client modifie sa commande d'office d'un jour
+  const [rafraichir, setRafraichir] = useState(0);
 
   const tab = Object.entries(lignes).map(([produitId, l]) => ({ produitId, ...l })).filter((l) => l.qte > 0);
   const aEmballes = tab.some((l) => PRODUITS_BY_ID[l.produitId]?.cat === "emballe");
   const dates = useMemo(() => datesPossibles(mode, aEmballes), [mode, aEmballes]);
-  useEffect(() => { if (!dates.includes(date)) setDate(dates[0] || ""); }, [dates]);
+  useEffect(() => { if (!edition && !dates.includes(date)) setDate(dates[0] || ""); }, [dates, edition]);
   const t = totaux(tab, mode);
 
   const habitudes = moi.habitudes || {};
@@ -181,8 +255,16 @@ function Commande({ etat, recharger }) {
     const ids = new Set([...Object.keys(h), ...Object.keys(c)]);
     return [...ids].some((id) => (h[id] || 0) !== (c[id] || 0));
   })();
-  // Panier vide + date choisie : on propose automatiquement la commande habituelle de ce jour
-  useEffect(() => { if (date && !tab.length && habitudes[jourDe(date)]) appliquerHabitude(jourDe(date)); }, [date]);
+  // Client avec commandes d'office : la commande du jour existe déjà ; le formulaire sert à la modifier ou à commander en plus.
+  const aOffice = joursHab.length > 0;
+  const [formulaireOuvert, setFormulaireOuvert] = useState(false);
+  const modifierOffice = (d, office) => {
+    setEdition({ date: d }); setDate(d); setMode(office.mode || mode); setNote("");
+    setLignes(Object.fromEntries(office.lignes.map((l) => [l.produitId, { qte: l.qte, decoupe: l.decoupe || "entier" }])));
+    setFormulaireOuvert(true);
+    setTimeout(() => document.getElementById("formulaire")?.scrollIntoView({ behavior: "smooth" }), 50);
+  };
+  const fermerFormulaire = () => { setEdition(null); setFormulaireOuvert(false); setLignes({}); setSupp(null); setErr(null); };
   // Catalogue limité aux produits déjà achetés (fiches de chargement, commandes d'office, commandes passées).
   // Un client sans aucun historique ne voit aucun produit (il passe par la commande supplémentaire ou appelle).
   const restreint = true;
@@ -206,7 +288,7 @@ function Commande({ etat, recharger }) {
   const valider = async () => {
     setErr(null); setEnvoi(true);
     try {
-      const r = await api("/api/orders", { method: "POST", body: JSON.stringify({ date, mode, note, lignes: tab, supplement: supp || "" }) });
+      const r = await api("/api/orders", { method: "POST", body: JSON.stringify({ date, mode, note, lignes: tab, supplement: supp || "", office: !!edition }) });
       if (r.checkoutUrl) { location.href = r.checkoutUrl; return; }
       if (r.formulaire) { // PayZen : envoi du formulaire signé vers la page de paiement de la banque
         const f = document.createElement("form");
@@ -216,16 +298,16 @@ function Commande({ etat, recharger }) {
         }
         document.body.appendChild(f); f.submit(); return;
       }
-      setFini(r.commande); recharger();
+      setFini(r.commande); setEdition(null); setFormulaireOuvert(false); setRafraichir((x) => x + 1); recharger();
     } catch (e) { setErr(e.message); }
     setEnvoi(false);
   };
 
   if (fini) return (
     <div className="card">
-      <h2>✅ Commande enregistrée</h2>
+      <h2>✅ {fini.office ? "Commande modifiée" : "Commande enregistrée"}</h2>
       <p>{fini.mode === "retrait" ? "Retrait au fournil" : "Livraison"} le <b>{frDate(fini.date)}</b> — {xpf(fini.ttc)} TTC.</p>
-      <button className="primaire gros" onClick={() => { setFini(null); setLignes({}); }}>Nouvelle commande</button>
+      <button className="primaire gros" onClick={() => { setFini(null); setLignes({}); setSupp(null); }}>{aOffice ? "Retour à mes commandes" : "Nouvelle commande"}</button>
     </div>
   );
 
@@ -238,7 +320,20 @@ function Commande({ etat, recharger }) {
         24 h à l'avance pour le snacking, 48 h pour les pains emballés. Lundi : commander le samedi avant 13 h.
       </p>
 
+      {aOffice && <MesCommandes onModifier={modifierOffice} rafraichir={rafraichir} />}
+      {aOffice && !formulaireOuvert && (
+        <button className="gros" onClick={() => { setEdition(null); setLignes({}); setFormulaireOuvert(true); }}>➕ Passer une commande en plus</button>
+      )}
+
+      {(!aOffice || formulaireOuvert) && <div id="formulaire">
+      {aOffice && (
+        <div className="row" style={{ marginTop: 16 }}>
+          <h3 style={{ margin: 0 }}>{edition ? `Modifier ma commande du ${frDate(edition.date)}` : "Commande en plus"}</h3>
+          <button style={{ flex: "none" }} onClick={fermerFormulaire}>Fermer</button>
+        </div>
+      )}
       <div className="card">
+        {!edition && <>
         <label>Pré-remplir avec…</label>
         <select onChange={(e) => prerempli(e.target.value)} defaultValue="">
           <option value="">— Commande vide —</option>
@@ -247,6 +342,7 @@ function Commande({ etat, recharger }) {
             <option key={h.id} value={h.id}>{i === 0 ? "⭐ Ma dernière commande" : "Commande"} du {frDate(h.date)} ({xpf(h.ttc)})</option>
           ))}
         </select>
+        </>}
         <div className="row">
           <div>
             <label>Mode</label>
@@ -257,8 +353,8 @@ function Commande({ etat, recharger }) {
           </div>
           <div>
             <label>Date</label>
-            <select value={date} onChange={(e) => setDate(e.target.value)}>
-              {dates.map((d) => <option key={d} value={d}>{new Date(d + "T12:00:00Z").toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" })}</option>)}
+            <select value={date} disabled={!!edition} onChange={(e) => setDate(e.target.value)}>
+              {(edition ? [edition.date] : dates).map((d) => <option key={d} value={d}>{new Date(d + "T12:00:00Z").toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" })}</option>)}
             </select>
           </div>
         </div>
@@ -305,7 +401,7 @@ function Commande({ etat, recharger }) {
         {!visibles.length && <p className="muted">Aucun produit trouvé.</p>}
       </div>}
 
-      {habDuJour && differeHabitude && (
+      {(edition || !aOffice) && habDuJour && differeHabitude && (
         <div className="card" style={{ background: "#fffbea" }}>
           <p style={{ margin: 0 }}>Vous avez modifié votre commande habituelle du {jourDe(date)}. Ce changement ne vaut <b>que pour cette commande</b>.</p>
           <AppelHabitude />
@@ -332,10 +428,11 @@ function Commande({ etat, recharger }) {
             <b style={{ textAlign: "right" }}>TTC {xpf(t.ttc)}</b>
           </div>
           <button className="primaire gros" disabled={(!tab.length && !supp?.trim()) || !date || envoi} onClick={valider}>
-            {enLigne ? `Payer ${xpf(t.ttc)} et commander` : "Valider la commande"}
+            {edition ? "Enregistrer la modification" : enLigne ? `Payer ${xpf(t.ttc)} et commander` : "Valider la commande"}
           </button>
         </div>
       </div>
+      </div>}
     </>
   );
 }

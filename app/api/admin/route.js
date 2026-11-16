@@ -87,6 +87,7 @@ export async function POST(req) {
     if (!c) { c = { id: String(b.id) }; liste.push(c); }
     for (const k of ["nom", "tournee", "paiement", "mode"]) if (b[k] != null) c[k] = b[k];
     if (b.code) c.codeHash = hashCode(b.code);
+    if (b.resetCode) delete c.codeHash; // le client recrée son mot de passe à la prochaine connexion
     await set("clients", liste);
     return NextResponse.json({ ok: true });
   }
