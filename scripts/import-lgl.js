@@ -19,9 +19,22 @@ const JOURS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
 const rows = (file, sheet) => {
   const wb = X.readFile(file);
   const out = {};
-  for (const n of sheet ? [sheet] : wb.SheetNames) out[n] = X.utils.sheet_to_json(wb.Sheets[n], { header: 1, defval: "" });
+  for (const n of sheet ? [sheet] : wb.SheetNames) out[n] = avecFusions(wb.Sheets[n]);
   return out;
 };
+// Cellules fusionnées : la valeur (ex. « 20 Laits » de mardi à vendredi) est recopiée dans chaque case de la fusion
+function avecFusions(ws) {
+  const a = X.utils.sheet_to_json(ws, { header: 1, defval: "", blankrows: true });
+  for (const m of ws["!merges"] || []) {
+    const v = a[m.s.r]?.[m.s.c];
+    if (v === "" || v === undefined) continue;
+    for (let r = m.s.r; r <= m.e.r; r++) for (let c = m.s.c; c <= m.e.c; c++) {
+      a[r] = a[r] || []; while (a[r].length <= c) a[r].push("");
+      a[r][c] = v;
+    }
+  }
+  return a;
+}
 const norm = (s) => String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/\(.*?\)/g, " ").replace(/[^A-Z0-9]+/g, " ").trim();
 const STOP = new Set(["SARL", "SAS", "SNACK", "ALIMENTATION", "CHEZ", "LE", "LA", "LES", "DU", "DE", "DES", "NC", "MAGASIN", "TRAIT", "TRAITEUR", "AU", "ET", "L", "D", "TEL", "SI"]);
 const mots = (s) => norm(s).split(" ").filter((w) => w.length > 1 && !STOP.has(w) && !/^\d+$/.test(w));
@@ -111,7 +124,7 @@ for (const r of office) {
   const col0 = String(r[0]).trim();
   if (col0) lieuCourant = col0;
   const nomT = String(r[1]).trim();
-  if (!nomT || /^(LUNDI)$/i.test(String(r[2]).trim())) continue;
+  if (!nomT || /COMMANDES D.OFFICE/i.test(nomT) || /^(LUNDI)$/i.test(String(r[2]).trim())) continue;
   const jours = {};
   JOURS.forEach((j, i) => { const p = parserCellule(r[2 + i]); if (p && (p.lignes.length || p.texte)) jours[j] = p; });
   if (!Object.keys(jours).length) continue;
