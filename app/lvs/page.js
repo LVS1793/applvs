@@ -285,7 +285,7 @@ function Clients({ etat, recharger }) {
           <tbody>
             {liste.map((c) => (
               <tr key={c.id} onClick={() => setEdit({ ...c, code: "" })} style={{ cursor: "pointer" }}>
-                <td>{c.id}</td><td>{c.nom}</td><td>{c.tournee}</td><td>{c.livreur || ""}</td><td>{c.paiement}</td><td>{c.habitudes ? Object.keys(c.habitudes).map((j) => j.slice(0, 3)).join(" ") : ""}</td><td>{c.aCode ? "✔" : <span className="badge ambre">à définir</span>}</td>
+                <td>{c.id}</td><td>{c.nom}</td><td>{c.tournee}</td><td>{c.livreur || ""}</td><td>{c.paiement}</td><td>{c.habitudes ? Object.keys(c.habitudes).map((j) => j.slice(0, 3)).join(" ") : ""}</td><td>{c.aCode ? "personnalisé" : <span className="badge">= ID</span>}</td>
               </tr>
             ))}
           </tbody>

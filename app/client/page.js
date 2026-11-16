@@ -96,7 +96,9 @@ function Onboarding({ clients, ok }) {
   const [code, setCode] = useState("");
   const [nom, setNom] = useState("");
   const [err, setErr] = useState(null);
-  const liste = clients.filter((c) => c.nom.toLowerCase().includes(filtre.toLowerCase()));
+  const sansAccent = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const liste = clients.filter((c) => sansAccent(c.nom).includes(sansAccent(filtre)));
+  const choisi = clients.find((c) => c.id === id);
 
   const go = async (body) => {
     setErr(null);
@@ -111,12 +113,23 @@ function Onboarding({ clients, ok }) {
       {onglet === "compte" && (
         <div className="card">
           <label>Votre établissement</label>
-          <input className="recherche" placeholder="Rechercher (ex. snack…)" value={filtre} onChange={(e) => setFiltre(e.target.value)} />
-          <select value={id} onChange={(e) => setId(e.target.value)} size={Math.min(6, Math.max(2, liste.length))}>
-            {liste.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
-          </select>
+          {!choisi && <input className="recherche" placeholder="Rechercher (ex. snack…)" value={filtre} onChange={(e) => setFiltre(e.target.value)} />}
+          {choisi ? (
+            <div className="ok row" style={{ margin: 0 }}>
+              <b>{choisi.nom}</b>
+              <button style={{ flex: "none" }} onClick={() => { setId(""); setFiltre(""); }}>Changer</button>
+            </div>
+          ) : (
+            <div className="liste-etab">
+              {liste.slice(0, 40).map((c) => (
+                <button key={c.id} type="button" onClick={() => setId(c.id)}>{c.nom}</button>
+              ))}
+              {liste.length > 40 && <p className="muted">Tapez quelques lettres pour affiner ({liste.length} résultats).</p>}
+              {clients.length > 0 && !liste.length && <p className="muted">Aucun établissement trouvé.</p>}
+            </div>
+          )}
           {!clients.length && <p className="muted">Aucun client importé pour l'instant.</p>}
-          <label>Code client (donné par La Vie Saine)</label>
+          <label>Code client (votre numéro client La Vie Saine)</label>
           <input inputMode="numeric" value={code} onChange={(e) => setCode(e.target.value)} />
           <button className="primaire gros" style={{ marginTop: 14 }} disabled={!id || !code} onClick={() => go({ clientId: id, code })}>Entrer</button>
         </div>

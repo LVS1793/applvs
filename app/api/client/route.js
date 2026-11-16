@@ -40,8 +40,9 @@ export async function POST(req) {
   const liste = await clients();
   const c = liste.find((x) => x.id === String(b.clientId));
   if (!c) return NextResponse.json({ erreur: "Client introuvable." }, { status: 404 });
-  if (!c.codeHash) return NextResponse.json({ erreur: "Aucun code défini pour ce compte : appelez La Vie Saine." }, { status: 403 });
-  if (c.codeHash !== hashCode(b.code)) return NextResponse.json({ erreur: "Code incorrect." }, { status: 401 });
+  // Code client = ID LGL, sauf si un code spécifique a été défini dans l'espace La Vie Saine
+  const ok = c.codeHash ? c.codeHash === hashCode(b.code) : String(b.code || "").trim() === c.id;
+  if (!ok) return NextResponse.json({ erreur: "Code incorrect." }, { status: 401 });
   setSession("lvs_client", { id: c.id });
   return NextResponse.json({ ok: true });
 }

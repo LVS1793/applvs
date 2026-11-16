@@ -49,6 +49,10 @@ td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
 .okbar.fait { border-color: var(--vert); background: var(--vert-clair); }
 .recherche { margin-bottom: 8px; }
 .print-only { display: none; }
+.liste-etab { max-height: 280px; overflow-y: auto; border: 1px solid var(--bord); border-radius: 8px; }
+.liste-etab button { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--bord); border-radius: 0; padding: 12px; }
+.liste-etab button:active, .liste-etab button:hover { background: var(--vert-clair); }
+.liste-etab .muted { padding: 8px 12px; margin: 0; }
 
 @media print {
   body { background: #fff; font-size: 12px; }
