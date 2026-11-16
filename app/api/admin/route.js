@@ -52,6 +52,25 @@ export async function POST(req) {
     await set("clients", [...parId.values()]);
     return NextResponse.json({ ok: true, n });
   }
+  if (b.action === "importLGL") {
+    // Fichier lgl-clients.json produit par scripts/import-lgl.js
+    const liste = await clients();
+    const parId = new Map(liste.map((c) => [c.id, c]));
+    let n = 0;
+    for (const s of b.data?.clients || []) {
+      if (!s.id || !s.nom) continue;
+      const c = parId.get(String(s.id)) || { id: String(s.id) };
+      Object.assign(c, {
+        nom: s.nom, tournee: s.tournee || "Sans tournée", livreur: s.livreur || null, type: s.type || null,
+        paiement: s.paiement || c.paiement || "compte", habitudes: s.habitudes || null, remarque: s.remarque || null,
+        mode: c.mode || (/fournil/i.test(s.tournee || "") ? "retrait" : "livraison"),
+      });
+      parId.set(c.id, c); n++;
+    }
+    await set("clients", [...parId.values()]);
+    if (b.data?.livreurs) await set("livreurs", b.data.livreurs);
+    return NextResponse.json({ ok: true, n });
+  }
   if (b.action === "client") {
     const liste = await clients();
     let c = liste.find((x) => x.id === String(b.id));

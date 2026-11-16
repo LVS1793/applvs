@@ -36,14 +36,15 @@ export async function POST(req) {
   const lignes = (b.lignes || [])
     .map((l) => ({ produitId: l.produitId, qte: Math.max(0, Math.floor(Number(l.qte) || 0)), decoupe: decoupesOk.has(l.decoupe) ? l.decoupe : "entier", ok: false }))
     .filter((l) => l.qte > 0 && PRODUITS_BY_ID[l.produitId]);
-  if (!lignes.length) return NextResponse.json({ erreur: "La commande est vide." }, { status: 400 });
+  const suppSeul = !lignes.length && String(b.supplement || "").trim() && client.paiement !== "comptant";
+  if (!lignes.length && !suppSeul) return NextResponse.json({ erreur: "La commande est vide." }, { status: 400 });
 
   const aEmballes = lignes.some((l) => PRODUITS_BY_ID[l.produitId].cat === "emballe");
   const errDate = verifierDate(b.date, mode, aEmballes);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(b.date || "") || errDate) return NextResponse.json({ erreur: errDate || "Date invalide." }, { status: 400 });
 
   const t = totaux(lignes, mode);
-  if (mode === "livraison" && t.ht < MINIMUM_LIVRAISON)
+  if (mode === "livraison" && !suppSeul && t.ht < MINIMUM_LIVRAISON)
     return NextResponse.json({ erreur: `Minimum de livraison : ${MINIMUM_LIVRAISON} XPF HT (actuel : ${t.ht} XPF). Ajoutez des produits ou choisissez le retrait au fournil.` }, { status: 400 });
 
   const cmd = {
@@ -51,13 +52,23 @@ export async function POST(req) {
     date: b.date, mode,
     clientId: client.id, clientNom: client.nom,
     tournee: mode === "retrait" ? "Fournil" : client.tournee || "Sans tournée",
-    paiement: client.paiement === "comptant" ? "comptant" : "compte",
+    paiement: ["comptant", "livraison"].includes(client.paiement) ? client.paiement : "compte",
+    livreur: mode === "retrait" ? null : client.livreur || null,
     lignes, note: String(b.note || "").slice(0, 500),
     ...t,
     statut: client.paiement === "comptant" ? "a_payer" : "confirmee",
     okProduit: null,
     creeLe: new Date().toISOString(),
   };
+
+  // Supplément écrit libre + détection des articles inhabituels (hors commandes d'office et historique)
+  cmd.supplement = String(b.supplement || "").trim().slice(0, 500);
+  const hk0 = `hist:${s.comptant ? "cpt:" + s.nom : s.id}`;
+  const connus = new Set([
+    ...Object.values(client.habitudes || {}).flatMap((j) => j.lignes.map((l) => l.produitId)),
+    ...(await get(hk0, [])).flatMap((h) => h.lignes.map((l) => l.produitId)),
+  ]);
+  cmd.inhabituels = connus.size ? lignes.filter((l) => !connus.has(l.produitId)).map((l) => l.produitId) : [];
 
   let checkoutUrl = null;
   if (cmd.paiement === "comptant") {

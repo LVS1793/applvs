@@ -100,10 +100,14 @@ function Commandes({ cmds, coul, patch, date }) {
             <b>{c.clientNom}</b>
             <span className="muted" style={{ textAlign: "right" }}>{c.mode === "retrait" ? "Retrait fournil" : c.tournee} · <Statut c={c} /></span>
           </div>
+          {c.inhabituels?.length > 0 && (
+            <div className="err">⚠️ Article(s) que ce client ne prend pas habituellement : <b>{c.inhabituels.map((id) => PRODUITS_BY_ID[id] ? libelle(PRODUITS_BY_ID[id]) : id).join(", ")}</b></div>
+          )}
+          {c.supplement && <div className="err" style={{ background: "#fef3c7", color: "#92400e" }}>➕ Commande supplémentaire : <b>{c.supplement}</b></div>}
           <table style={{ marginTop: 8 }}>
             <tbody>
               {c.lignes.map((l, i) => (
-                <tr key={i}>
+                <tr key={i} style={c.inhabituels?.includes(l.produitId) ? { outline: "2px solid #b42318" } : null}>
                   <td style={{ width: 32 }}><input type="checkbox" checked={!!l.ok} onChange={() => patch({ id: c.id, action: "ligne", index: i })} style={{ width: 20, height: 20 }} /></td>
                   <td className="n" style={{ width: 50 }}><b>{l.qte}</b></td>
                   <td>{PRODUITS_BY_ID[l.produitId] ? libelle(PRODUITS_BY_ID[l.produitId]) : l.produitId}</td>
@@ -186,9 +190,9 @@ function Livreurs({ cmds, coul, date }) {
       </div>
       {liste.map((c) => (
         <div className="card saut" key={c.id}>
-          <div className="row"><b style={{ fontSize: 18 }}>{c.tournee}</b><span style={{ textAlign: "right" }}>{frDate(date)}</span></div>
+          <div className="row"><b style={{ fontSize: 18 }}>{c.tournee}{c.livreur ? ` (${c.livreur})` : ""}</b><span style={{ textAlign: "right" }}>{frDate(date)}</span></div>
           <h2 style={{ margin: "8px 0" }}>{c.clientNom}</h2>
-          <p>{c.mode === "retrait" ? "Retrait au fournil" : "Livraison"} · <Statut c={c} /> {c.paiement === "comptant" && c.statut === "a_payer" && <b> — À ENCAISSER {xpf(c.ttc)}</b>}</p>
+          <p>{c.mode === "retrait" ? "Retrait au fournil" : "Livraison"} · <Statut c={c} /> {((c.paiement === "comptant" && c.statut === "a_payer") || c.paiement === "livraison") && <b> — À ENCAISSER {xpf(c.ttc)}</b>}</p>
           <table>
             <thead><tr><th className="n">Qté</th><th>Produit</th><th>Découpe</th><th>✓</th></tr></thead>
             <tbody>
@@ -202,6 +206,7 @@ function Livreurs({ cmds, coul, date }) {
               ))}
             </tbody>
           </table>
+          {c.supplement && <p><b>➕ Supplément : {c.supplement}</b></p>}
           {c.note && <p>📝 {c.note}</p>}
           <div className="okbar" style={{ marginTop: 16 }}>
             <span style={{ flex: 1 }}>Produit : ☐ OK &nbsp;&nbsp; Par : ____________ &nbsp;&nbsp; Chargé : ☐</span>
@@ -230,7 +235,20 @@ function Clients({ etat, recharger }) {
   return (
     <>
       <div className="card">
-        <h3>Importer depuis LGL / Excel</h3>
+        <h3>Importer le fichier LGL complet</h3>
+        <p className="muted">Fichier <b>lgl-clients.json</b> généré au bureau par <code>node scripts/import-lgl.js</code> (base LGL + livreurs + commandes d'office). Les codes clients déjà définis sont conservés.</p>
+        <input type="file" accept=".json" onChange={async (e) => {
+          const f = e.target.files[0]; if (!f) return;
+          try {
+            const data = JSON.parse(await f.text());
+            const r = await api("/api/admin", { method: "POST", body: JSON.stringify({ action: "importLGL", data }) });
+            setMsg(`${r.n} client(s) LGL importé(s), dont ${data.clients.filter((c) => c.habitudes).length} avec commandes habituelles.`); recharger();
+          } catch (x) { setMsg("Erreur : " + x.message); }
+          e.target.value = "";
+        }} />
+      </div>
+      <div className="card">
+        <h3>Ajout rapide (coller depuis Excel)</h3>
         <p className="muted">Copier les colonnes depuis Excel puis coller ici : <b>ID · Nom · Tournée · Paiement (compte ou comptant) · Code</b>. Les colonnes 3 à 5 sont facultatives ; un client existant (même ID) est mis à jour.</p>
         <textarea rows={6} value={texte} onChange={(e) => setTexte(e.target.value)} placeholder={"1024\tSNACK EXEMPLE\tLivreur 2 — Centre-ville > Orphelinat\tcompte\t4821"} />
         <button className="primaire" style={{ marginTop: 8 }} disabled={!texte.trim()} onClick={importer}>Importer</button>
@@ -263,11 +281,11 @@ function Clients({ etat, recharger }) {
       )}
       <div className="card">
         <table>
-          <thead><tr><th>ID</th><th>Nom</th><th>Tournée</th><th>Paiement</th><th>Code</th></tr></thead>
+          <thead><tr><th>ID</th><th>Nom</th><th>Tournée</th><th>Livreur</th><th>Paiement</th><th>Habitudes</th><th>Code</th></tr></thead>
           <tbody>
             {liste.map((c) => (
               <tr key={c.id} onClick={() => setEdit({ ...c, code: "" })} style={{ cursor: "pointer" }}>
-                <td>{c.id}</td><td>{c.nom}</td><td>{c.tournee}</td><td>{c.paiement}</td><td>{c.aCode ? "✔" : <span className="badge ambre">à définir</span>}</td>
+                <td>{c.id}</td><td>{c.nom}</td><td>{c.tournee}</td><td>{c.livreur || ""}</td><td>{c.paiement}</td><td>{c.habitudes ? Object.keys(c.habitudes).map((j) => j.slice(0, 3)).join(" ") : ""}</td><td>{c.aCode ? "✔" : <span className="badge ambre">à définir</span>}</td>
               </tr>
             ))}
           </tbody>
