@@ -87,58 +87,48 @@ export default function Client() {
       </header>
       <main className="wrap">
         {msg && <div className={msg.startsWith("✅") ? "ok" : "err"}>{msg}</div>}
-        {!etat ? <p className="muted">Chargement…</p> : etat.moi ? <Commande etat={etat} recharger={charger} /> : <Onboarding clients={etat.clients} ok={charger} />}
+        {!etat ? <p className="muted">Chargement…</p> : etat.moi ? <Commande etat={etat} recharger={charger} /> : <Onboarding ok={charger} />}
       </main>
     </>
   );
 }
 
-function Onboarding({ clients, ok }) {
-  const [onglet, setOnglet] = useState("compte");
-  const [filtre, setFiltre] = useState("");
-  const [id, setId] = useState("");
+function Onboarding({ ok }) {
+  const [numero, setNumero] = useState("");
   const [code, setCode] = useState("");
-  const [nom, setNom] = useState("");
+  const [besoinCode, setBesoinCode] = useState(false);
   const [err, setErr] = useState(null);
-  const sansAccent = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-  const liste = clients.filter((c) => sansAccent(c.nom).includes(sansAccent(filtre)));
-  const choisi = clients.find((c) => c.id === id);
+  const [envoi, setEnvoi] = useState(false);
 
-  const go = async (body) => {
-    setErr(null);
-    try { await api("/api/client", { method: "POST", body: JSON.stringify(body) }); ok(); } catch (e) { setErr(e.message); }
+  const go = async (e) => {
+    e.preventDefault();
+    setErr(null); setEnvoi(true);
+    const r = await fetch("/api/client", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ numero, code: besoinCode ? code : undefined }) });
+    const j = await r.json().catch(() => ({}));
+    setEnvoi(false);
+    if (r.ok) return ok();
+    if (j.besoinCode) setBesoinCode(true);
+    setErr(j.erreur || "Erreur");
   };
 
   return (
-    <>
+    <form onSubmit={go}>
       <h2>Bienvenue 👋</h2>
-      <p>Connectez-vous avec votre compte client.</p>
+      <p>Connectez-vous avec votre numéro client.</p>
       {err && <div className="err">{err}</div>}
-      {onglet === "compte" && (
-        <div className="card">
-          <label>Votre établissement</label>
-          {!choisi && <input className="recherche" placeholder="Rechercher (ex. snack…)" value={filtre} onChange={(e) => setFiltre(e.target.value)} />}
-          {choisi ? (
-            <div className="ok row" style={{ margin: 0 }}>
-              <b>{choisi.nom}</b>
-              <button style={{ flex: "none" }} onClick={() => { setId(""); setFiltre(""); }}>Changer</button>
-            </div>
-          ) : (
-            <div className="liste-etab">
-              {liste.slice(0, 40).map((c) => (
-                <button key={c.id} type="button" onClick={() => setId(c.id)}>{c.nom}</button>
-              ))}
-              {liste.length > 40 && <p className="muted">Tapez quelques lettres pour affiner ({liste.length} résultats).</p>}
-              {clients.length > 0 && !liste.length && <p className="muted">Aucun établissement trouvé.</p>}
-            </div>
-          )}
-          {!clients.length && <p className="muted">Aucun client importé pour l'instant.</p>}
-          <label>Code client (votre numéro client La Vie Saine)</label>
-          <input inputMode="numeric" value={code} onChange={(e) => setCode(e.target.value)} />
-          <button className="primaire gros" style={{ marginTop: 14 }} disabled={!id || !code} onClick={() => go({ clientId: id, code })}>Entrer</button>
-        </div>
-      )}
-      <p className="muted">Pas encore de compte ? Appelez La Vie Saine pour l'ouvrir et recevoir votre code.</p>    </>
+      <div className="card">
+        <label>Numéro client La Vie Saine</label>
+        <input inputMode="numeric" autoComplete="username" placeholder="ex. 1024" value={numero} onChange={(e) => { setNumero(e.target.value); setBesoinCode(false); }} autoFocus />
+        {besoinCode && (
+          <>
+            <label>Code personnel</label>
+            <input type="password" inputMode="numeric" autoComplete="current-password" value={code} onChange={(e) => setCode(e.target.value)} />
+          </>
+        )}
+        <button className="primaire gros" style={{ marginTop: 14 }} disabled={!numero.trim() || envoi || (besoinCode && !code)}>Entrer</button>
+      </div>
+      <p className="muted">Votre numéro client figure sur vos factures. Pas encore de compte ? Appelez La Vie Saine.</p>
+    </form>
   );
 }
 

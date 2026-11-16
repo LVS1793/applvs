@@ -5,8 +5,6 @@ import { paiementActif } from "@/lib/stripe";
 import { payzenActif } from "@/lib/payzen";
 import { setSession, sessionClient, clearSession, hashCode } from "@/lib/auth";
 
-const refClient = (id) => hashCode("ref:" + id).slice(0, 16);
-
 export const dynamic = "force-dynamic";
 
 // GET : liste des noms (menu déroulant) + session courante + historique
@@ -29,8 +27,7 @@ export async function GET() {
     historique = await get(`hist:${s.comptant ? "cpt:" + s.nom : s.id}`, []);
   }
   return NextResponse.json({
-    // L'ID LGL sert de code : on ne l'expose pas, on envoie une référence opaque
-    clients: liste.map((c) => ({ id: refClient(c.id), nom: c.nom })).sort((a, b) => a.nom.localeCompare(b.nom)),
+    // Aucune liste d'établissements n'est envoyée : le client se connecte avec son numéro (ID LGL).
     moi, historique, paiementEnLigne: paiementActif || payzenActif,
     decoupes: ((await get("reglages")) || {}).decoupes || DECOUPES_DEFAUT,
   });
@@ -45,14 +42,18 @@ export async function POST(req) {
     setSession("lvs_client", { comptant: true, nom });
     return NextResponse.json({ ok: true });
   }
-  const liste = await clientsActifs();
-  const c = liste.find((x) => refClient(x.id) === String(b.clientId));
-  if (!c) return NextResponse.json({ erreur: "Client introuvable." }, { status: 404 });
-  const kf = `essais:${c.id}`;
-  if ((await lireCompteur(kf)) >= 8) return NextResponse.json({ erreur: "Trop d'essais. Réessayez dans 15 minutes ou appelez La Vie Saine." }, { status: 429 });
-  // Code client = ID LGL, sauf si un code spécifique a été défini dans l'espace La Vie Saine
-  const ok = c.codeHash ? c.codeHash === hashCode(b.code) : String(b.code || "").trim() === c.id;
-  if (!ok) { await incrementer(kf, 900); return NextResponse.json({ erreur: "Code incorrect." }, { status: 401 }); }
+  // Limite d'essais par appareil (adresse IP) : empêche de tester tous les numéros
+  const ip = (req.headers.get("x-forwarded-for") || "local").split(",")[0].trim();
+  const kf = `essais-client:${ip}`;
+  if ((await lireCompteur(kf)) >= 10) return NextResponse.json({ erreur: "Trop d'essais. Réessayez dans 15 minutes ou appelez La Vie Saine." }, { status: 429 });
+  const numero = String(b.numero || "").trim();
+  const c = (await clientsActifs()).find((x) => x.id === numero);
+  if (!c) { await incrementer(kf, 900); return NextResponse.json({ erreur: "Numéro client inconnu. Vérifiez votre numéro ou appelez La Vie Saine." }, { status: 401 }); }
+  // Code personnalisé éventuel (défini dans l'espace équipe) : demandé en plus du numéro
+  if (c.codeHash) {
+    if (!b.code) return NextResponse.json({ besoinCode: true, erreur: "Ce compte demande aussi son code personnel." }, { status: 401 });
+    if (c.codeHash !== hashCode(b.code)) { await incrementer(kf, 900); return NextResponse.json({ besoinCode: true, erreur: "Code incorrect." }, { status: 401 }); }
+  }
   setSession("lvs_client", { id: c.id });
   return NextResponse.json({ ok: true });
 }
