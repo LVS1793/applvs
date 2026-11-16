@@ -285,7 +285,10 @@ for (const c of resultat.values()) {
   if (c.ficheChargement && !c.nomTableau) { delete c.habitudes; } // habitudes issues d'une fiche magasin
   else if (c.ficheChargement && c.habitudes) {
     // snack + magasin sur le même compte : ne garder que la partie snack (commande d'office)
-    for (const j of Object.keys(c.habitudes)) c.habitudes[j].lignes = c.habitudes[j].lignes.filter((l) => !l.deChargement);
+    for (const j of Object.keys(c.habitudes)) {
+      c.habitudes[j].lignes = c.habitudes[j].lignes.filter((l) => !l.deChargement);
+      if (!c.habitudes[j].lignes.length && !c.habitudes[j].texte) delete c.habitudes[j]; // jour sans commande snack
+    }
   }
   delete c.ficheChargement;
 }
