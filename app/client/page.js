@@ -11,6 +11,16 @@ const api = async (url, opts) => {
 };
 const xpf = (n) => n.toLocaleString("fr-FR") + " XPF";
 const JOURS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+const TEL_HABITUDE = "275982";
+
+// Modifier durablement la commande habituelle (commande d'office) se fait par téléphone
+function AppelHabitude() {
+  return (
+    <a href={`tel:${TEL_HABITUDE}`} className="appel">
+      📞 Modifier ma commande habituelle : appelez le <b>27 59 82</b>
+    </a>
+  );
+}
 
 // Fiche du client : livreur, tournée, produits habituels avec tarifs (données LGL)
 function MonEspace({ moi, mode }) {
@@ -51,6 +61,7 @@ function MonEspace({ moi, mode }) {
           {jours.some((j) => hab[j].texte) && <p className="muted">Aussi : {jours.filter((j) => hab[j].texte).map((j) => `${j} : ${hab[j].texte}`).join(" · ")}</p>}
           {moi.remarque && <p className="muted">Note : {moi.remarque}</p>}
           <p className="muted">Prix {mode === "retrait" ? "fournil" : "livraison"} 2026, hors TGC 3 %. Votre commande habituelle est pré-remplie selon le jour choisi.</p>
+          <AppelHabitude />
         </>
       )}
     </div>
@@ -163,6 +174,13 @@ function Commande({ etat, recharger }) {
     const h = habitudes[jour];
     if (h) setLignes(Object.fromEntries(h.lignes.map((l) => [l.produitId, { qte: l.qte, decoupe: "entier" }])));
   };
+  const habDuJour = date ? habitudes[jourDe(date)] : null;
+  const differeHabitude = !!habDuJour && (() => {
+    const h = {}; habDuJour.lignes.forEach((l) => { h[l.produitId] = (h[l.produitId] || 0) + l.qte; });
+    const c = {}; tab.forEach((l) => { c[l.produitId] = l.qte; });
+    const ids = new Set([...Object.keys(h), ...Object.keys(c)]);
+    return [...ids].some((id) => (h[id] || 0) !== (c[id] || 0));
+  })();
   // Panier vide + date choisie : on propose automatiquement la commande habituelle de ce jour
   useEffect(() => { if (date && !tab.length && habitudes[jourDe(date)]) appliquerHabitude(jourDe(date)); }, [date]);
   const visibles = PRODUITS.filter((p) =>
@@ -267,6 +285,12 @@ function Commande({ etat, recharger }) {
         {!visibles.length && <p className="muted">Aucun produit.</p>}
       </div>
 
+      {habDuJour && differeHabitude && (
+        <div className="card" style={{ background: "#fffbea" }}>
+          <p style={{ margin: 0 }}>Vous avez modifié votre commande habituelle du {jourDe(date)}. Ce changement ne vaut <b>que pour cette commande</b>.</p>
+          <AppelHabitude />
+        </div>
+      )}
       {supp === null ? (
         <button className="gros" style={{ marginTop: 8 }} onClick={() => setSupp("")}>➕ J'ai une commande supplémentaire</button>
       ) : (

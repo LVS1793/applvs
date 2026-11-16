@@ -50,6 +50,7 @@ td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
 .okbar.fait { border-color: var(--vert); background: var(--vert-clair); }
 .recherche { margin-bottom: 8px; }
 .print-only { display: none; }
+.appel { display: block; text-align: center; text-decoration: none; background: #e8f4f9; color: #1f5f75; border: 1px solid var(--bleu); border-radius: 10px; padding: 12px; margin-top: 10px; font-size: 15px; }
 /* Téléphone */
 input, select, textarea { font-size: 16px !important; } /* évite le zoom automatique sur iPhone */
 .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
