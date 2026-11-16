@@ -21,7 +21,7 @@ export async function GET() {
       const c = liste.find((x) => x.id === s.id);
       if (c) moi = {
         id: c.id, nom: c.nom, paiement: c.paiement, tournee: c.tournee, mode: c.mode || "livraison",
-        doitCreerCode: !c.codeHash, livreur: c.livreur || null, type: c.type || null, habitudes: c.habitudes || null, remarque: c.remarque || null, produits: c.produits || null,
+        livreur: c.livreur || null, type: c.type || null, habitudes: c.habitudes || null, remarque: c.remarque || null, produits: c.produits || null,
       };
     }
     historique = await get(`hist:${s.comptant ? "cpt:" + s.nom : s.id}`, []);
@@ -49,12 +49,7 @@ export async function POST(req) {
   const numero = String(b.numero || "").trim();
   const c = (await clientsActifs()).find((x) => x.id === numero);
   if (!c) { await incrementer(kf, 900); return NextResponse.json({ erreur: "Numéro client inconnu. Vérifiez votre numéro ou appelez La Vie Saine." }, { status: 401 }); }
-  // Authentification : numéro client + mot de passe personnel.
-  // Première connexion (aucun mot de passe encore créé) : le numéro suffit, puis le client doit créer son mot de passe.
-  if (c.codeHash) {
-    if (!b.code) return NextResponse.json({ besoinCode: true, erreur: "Saisissez votre mot de passe." }, { status: 401 });
-    if (c.codeHash !== hashCode(b.code)) { await incrementer(kf, 900); return NextResponse.json({ besoinCode: true, erreur: "Mot de passe incorrect." }, { status: 401 }); }
-  }
+  // Connexion simple : le numéro client (ID LGL) suffit.
   setSession("lvs_client", { id: c.id });
   return NextResponse.json({ ok: true });
 }

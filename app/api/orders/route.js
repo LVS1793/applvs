@@ -51,7 +51,6 @@ export async function POST(req) {
   else {
     client = (await clients()).find((c) => c.id === s.id);
     if (!client) return NextResponse.json({ erreur: "Compte introuvable." }, { status: 404 });
-    if (!client.codeHash) return NextResponse.json({ erreur: "Créez d'abord votre mot de passe." }, { status: 403 });
   }
 
   // Annuler / rétablir la commande d'office d'un jour (dans les délais)
