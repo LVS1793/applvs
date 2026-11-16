@@ -70,7 +70,7 @@ export async function POST(req) {
       const c = parId.get(String(s.id)) || { id: String(s.id) };
       Object.assign(c, {
         nom: s.nom, tournee: s.tournee || "Sans tournée", livreur: s.livreur || null, type: s.type || null,
-        paiement: s.paiement || c.paiement || "compte", habitudes: s.habitudes || null, remarque: s.remarque || null, produits: s.produits || null,
+        paiement: s.paiement || c.paiement || "compte", habitudes: s.habitudes || null, remarque: s.remarque || null, produits: s.produits || null, categorie: s.categorie || null,
         mode: c.mode || (/fournil/i.test(s.tournee || "") ? "retrait" : "livraison"),
       });
       parId.set(c.id, c); n++;
@@ -85,7 +85,7 @@ export async function POST(req) {
     let c = liste.find((x) => x.id === String(b.id));
     if (b.supprimer) { await set("clients", liste.filter((x) => x !== c)); return NextResponse.json({ ok: true }); }
     if (!c) { c = { id: String(b.id) }; liste.push(c); }
-    for (const k of ["nom", "tournee", "paiement", "mode"]) if (b[k] != null) c[k] = b[k];
+    for (const k of ["nom", "tournee", "paiement", "mode", "categorie"]) if (b[k] != null) c[k] = b[k];
     if (b.code) c.codeHash = hashCode(b.code);
     if (b.resetCode) delete c.codeHash; // le client recrée son mot de passe à la prochaine connexion
     await set("clients", liste);

@@ -285,6 +285,9 @@ function Clients({ etat, recharger }) {
             <div><label>Paiement</label><select value={edit.paiement} onChange={(e) => setEdit({ ...edit, paiement: e.target.value })}><option value="compte">Compte (relevé mensuel LGL)</option><option value="livraison">Règlement à la livraison</option><option value="comptant">Comptant (paiement en ligne)</option></select></div>
           </div>
           <div className="row">
+            <div><label>Type (accès à l'app : snacks uniquement)</label><select value={edit.categorie || "snack"} onChange={(e) => setEdit({ ...edit, categorie: e.target.value })}><option value="snack">Snack (accès à l'app)</option><option value="magasin">Magasin (pas d'accès)</option><option value="autre">Autre (pas d'accès)</option><option value="inconnu">Inconnu (pas d'accès)</option></select></div>
+          </div>
+          <div className="row">
             <div><label>Mode par défaut</label><select value={edit.mode || "livraison"} onChange={(e) => setEdit({ ...edit, mode: e.target.value })}><option value="livraison">Livraison</option><option value="retrait">Retrait</option></select></div>
             <div><label>Mot de passe du client : {edit.aCode ? "créé par le client" : "pas encore créé (1re connexion avec le numéro seul)"}</label><input value={edit.code || ""} onChange={(e) => setEdit({ ...edit, code: e.target.value })} /></div>
           </div>
@@ -298,11 +301,11 @@ function Clients({ etat, recharger }) {
       )}
       <div className="card table-scroll">
         <table>
-          <thead><tr><th>ID</th><th>Nom</th><th className="hide-mobile">Tournée</th><th>Livreur</th><th className="hide-mobile">Paiement</th><th className="hide-mobile">Habitudes</th><th className="hide-mobile">Mot de passe</th></tr></thead>
+          <thead><tr><th>ID</th><th>Nom</th><th className="hide-mobile">Tournée</th><th>Livreur</th><th className="hide-mobile">Paiement</th><th>Type</th><th className="hide-mobile">Habitudes</th><th className="hide-mobile">Mot de passe</th></tr></thead>
           <tbody>
             {liste.map((c) => (
               <tr key={c.id} onClick={() => setEdit({ ...c, code: "" })} style={{ cursor: "pointer" }}>
-                <td>{c.id}</td><td>{c.nom}</td><td className="hide-mobile">{c.tournee}</td><td>{c.livreur || ""}</td><td className="hide-mobile">{c.paiement}</td><td className="hide-mobile">{c.habitudes ? Object.keys(c.habitudes).map((j) => j.slice(0, 3)).join(" ") : ""}</td><td className="hide-mobile">{c.aCode ? "✔ créé" : <span className="badge ambre">pas encore</span>}</td>
+                <td>{c.id}</td><td>{c.nom}</td><td className="hide-mobile">{c.tournee}</td><td>{c.livreur || ""}</td><td className="hide-mobile">{c.paiement}</td><td>{c.categorie === "snack" || !c.categorie ? <span className="badge vert">Snack</span> : <span className="badge">{c.categorie}</span>}</td><td className="hide-mobile">{c.habitudes ? Object.keys(c.habitudes).map((j) => j.slice(0, 3)).join(" ") : ""}</td><td className="hide-mobile">{c.aCode ? "✔ créé" : <span className="badge ambre">pas encore</span>}</td>
               </tr>
             ))}
           </tbody>

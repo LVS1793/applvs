@@ -9,7 +9,9 @@ export const dynamic = "force-dynamic";
 
 // GET : liste des noms (menu déroulant) + session courante + historique
 const enArret = (t) => /^\s*arr[eêé]t/i.test(t || "");
-const clientsActifs = async () => (await clients()).filter((c) => !enArret(c.tournee));
+// Application réservée aux snacks : les magasins (planning de livraison) et les autres clients n'y ont pas accès.
+const estSnack = (c) => !c.categorie || c.categorie === "snack";
+const clientsActifs = async () => (await clients()).filter((c) => !enArret(c.tournee) && estSnack(c));
 
 export async function GET() {
   const liste = await clientsActifs();

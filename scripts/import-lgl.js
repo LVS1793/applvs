@@ -147,7 +147,7 @@ for (const c of resultat.values()) {
 // Rapprochements vérifiés à la main (nom du tableau -> ID LGL). null = client absent de la base LGL.
 const FORCE = {
   "Super Mag": "698", "Superette 68": "87", "Ma Vie Là": "723", "Trait. Myshop": "727", "Traiteur Best. Super.": "346",
-  "Total Ducos": null, "Cosy Foch": null, "Magasin Val Plaisance": "146",
+  "Total Ducos": null, "Cosy Foch": null, "Magasin Val Plaisance": "146", "Bikini": "180", "Loulou": "194",
 };
 const nonTrouves = [];
 for (const h of habitudes) {
@@ -205,7 +205,7 @@ for (let i = 1; i <= 9; i++) {
       if (!regle) { libellesInconnus.add(lab); continue; }
       for (const [j, k] of Object.entries(cols)) {
         const q = Math.round(Number(r[k]) || 0);
-        if (q > 0) { (jours[j] = jours[j] || { lignes: [], texte: "" }).lignes.push({ produitId: regle[1], qte: q }); produits.add(regle[1]); }
+        if (q > 0) { (jours[j] = jours[j] || { lignes: [], texte: "" }).lignes.push({ produitId: regle[1], qte: q, deChargement: true }); produits.add(regle[1]); }
       }
     }
     if (produits.size) chargements.push({ livreurNum: i, onglet, nomFiche: String(a[h][0]).trim(), jours, produits: [...produits] });
@@ -240,6 +240,43 @@ for (const ch of chargements) {
   }
 }
 
+// ---------- 5. Tri snack / magasin ----------
+// L'application est réservée aux SNACKS. Sources :
+//  - Commande d'office Snack.xlsx : tout client qui y figure est un snack ;
+//  - Planning Livraison 2026.xlsx (dernier onglet) : liste des MAGASINS livrés ;
+//  - CLIENTS LGL 2025.xlsx : type (SNACK, MAGASIN, SNACK/MAGASIN…) ; le nom LGL « … (snack) ».
+const PLANNING = process.env.LGL_PLANNING || "//nas/COMMUN/Planning Livraison 2026.xlsx";
+const wbP = X.readFile(PLANNING);
+const feuilleP = X.utils.sheet_to_json(wbP.Sheets[wbP.SheetNames[wbP.SheetNames.length - 1]], { header: 1, defval: "" });
+const nomsMagasins = feuilleP.map((r) => String(r[0]).trim()).filter((n) => n && !/^(PLANNING|NOM DES|LIVREUR|TOTAL|MISE A JOUR|MISE À JOUR)/i.test(n));
+const tous = [...resultat.values()];
+for (const n of nomsMagasins) { const c = strict(n, tous); if (c) c.planningMagasin = true; }
+const motsSnack = /snack|food|truck|roulotte|burger|kebab|sandwich|croque|pizz|traiteur|restaurant|caf[eé]|coffee|\bbar\b|kitchen|chi?cken|chiken|\bcook\b|cuisto|grill|buffet|wings|tacos|deux coqs|boy n cow|single fin|mc ?donald/i;
+const pasSnack = /coll[eè]ge|lyc[eé]e|[eé]cole|school|maternelle|ehpad|amicale|tennis|basket|club|boucherie|supermarch|supermarket|magasin|[eé]picerie|alimentation|station|h[oô]tel|resort|carnet|test|boulangerie|ddec|fse\b|cise/i;
+for (const c of resultat.values()) {
+  const type = String(c.type || "").toUpperCase();
+  let cat;
+  if (c.nomTableau) cat = "snack";                                   // commande d'office snack
+  else if (/\bsnack\b/i.test(c.nom)) cat = "snack";                  // « … (snack) » dans le nom LGL
+  else if (c.planningMagasin) cat = "magasin";                       // livré au planning des magasins
+  else if (/SNACK/.test(type)) cat = "snack";                        // SNACK, SNACK/MAGASIN, MAGASIN/SNACK
+  else if (/MAGASIN|BOUCHERIE/.test(type)) cat = "magasin";
+  else if (type) cat = "autre";                                      // école, collège, amicale, comité
+  else cat = motsSnack.test(c.nom) && !pasSnack.test(c.nom) ? "snack" : "inconnu";
+  c.categorie = cat;
+}
+
+// Les chargements des magasins ne servent plus : seules les commandes d'office snack restent comme habitudes.
+for (const c of resultat.values()) {
+  if (c.categorie !== "snack") { delete c.habitudes; delete c.produits; continue; }
+  if (c.ficheChargement && !c.nomTableau) { delete c.habitudes; } // habitudes issues d'une fiche magasin
+  else if (c.ficheChargement && c.habitudes) {
+    // snack + magasin sur le même compte : ne garder que la partie snack (commande d'office)
+    for (const j of Object.keys(c.habitudes)) c.habitudes[j].lignes = c.habitudes[j].lignes.filter((l) => !l.deChargement);
+  }
+  delete c.ficheChargement;
+}
+
 // Liste des produits proposés à chaque client = produits de ses chargements + commandes d'office
 for (const c of resultat.values()) {
   const ids = new Set(Object.values(c.habitudes || {}).flatMap((j) => j.lignes.map((l) => l.produitId)));
@@ -267,3 +304,8 @@ console.log(`Fiches de chargement : ${chgOk}/${chargements.length} rapprochées 
 console.log("Fiches non rapprochées :", chgKo);
 console.log("Libellés de chargement inconnus :", [...libellesInconnus]);
 console.log("Rapprochements chargements :"); out.clients.filter((c) => c.ficheChargement).forEach((c) => console.log(`  ${c.ficheChargement}  ->  ${c.nom} [${c.id}]`));
+const parCat = {}; out.clients.forEach((c) => { parCat[c.categorie] = (parCat[c.categorie] || 0) + 1; });
+console.log("Catégories :", parCat, "· magasins du planning rapprochés :", out.clients.filter((c) => c.planningMagasin).length, "/", nomsMagasins.length);
+console.log("Snacks avec commande d'office :", out.clients.filter((c) => c.categorie === "snack" && c.habitudes).length);
+console.log("Snacks aussi au planning magasins :", out.clients.filter((c) => c.categorie === "snack" && c.planningMagasin).map((c) => c.nom));
+console.log("Inconnus (exclus) :", out.clients.filter((c) => c.categorie === "inconnu").length);
