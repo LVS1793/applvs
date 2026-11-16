@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { clients, commandesDuJour, ecrireCommande, lireCommande, get, set } from "@/lib/store";
 import { sessionClient, estAdmin } from "@/lib/auth";
-import { PRODUITS_BY_ID, totaux, DECOUPES_DEFAUT } from "@/lib/catalog";
+import { PRODUITS_BY_ID, totaux, decoupeValide } from "@/lib/catalog";
 import { verifierDate, maintenantNC } from "@/lib/rules";
 import { creerCheckout, paiementActif } from "@/lib/stripe";
 import { toutesLesCommandes, officeDuClient, genererOffice, habitudeDuJour, idOffice } from "@/lib/office";
@@ -70,9 +70,8 @@ export async function POST(req) {
 
   const mode = b.mode === "retrait" ? "retrait" : "livraison";
   const reglages = (await get("reglages")) || {};
-  const decoupesOk = new Set((reglages.decoupes || DECOUPES_DEFAUT).map((d) => d.id).concat("entier"));
   const lignes = (b.lignes || [])
-    .map((l) => ({ produitId: l.produitId, qte: Math.max(0, Math.floor(Number(l.qte) || 0)), decoupe: decoupesOk.has(l.decoupe) ? l.decoupe : "entier", ok: false }))
+    .map((l) => ({ produitId: l.produitId, qte: Math.max(0, Math.floor(Number(l.qte) || 0)), decoupe: decoupeValide(l.produitId, l.decoupe), ok: false }))
     .filter((l) => l.qte > 0 && PRODUITS_BY_ID[l.produitId]);
   const suppSeul = !lignes.length && String(b.supplement || "").trim() && client.paiement !== "comptant";
   if (!lignes.length && !suppSeul) return NextResponse.json({ erreur: "La commande est vide." }, { status: 400 });

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { clients, get, set, incrementer, lireCompteur } from "@/lib/store";
-import { DECOUPES_DEFAUT } from "@/lib/catalog";
+import { fusionDecoupes } from "@/lib/catalog";
 import { paiementActif } from "@/lib/stripe";
 import { payzenActif } from "@/lib/payzen";
 import { setSession, sessionClient, clearSession, hashCode } from "@/lib/auth";
@@ -31,7 +31,7 @@ export async function GET() {
   return NextResponse.json({
     // Aucune liste d'établissements n'est envoyée : le client se connecte avec son numéro (ID LGL).
     moi, historique, paiementEnLigne: paiementActif || payzenActif,
-    decoupes: ((await get("reglages")) || {}).decoupes || DECOUPES_DEFAUT,
+    decoupes: fusionDecoupes(((await get("reglages")) || {}).decoupes),
   });
 }
 

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { clients, get, set, persistant, incrementer, lireCompteur } from "@/lib/store";
 import { setSession, clearSession, estAdmin, hashCode } from "@/lib/auth";
-import { DECOUPES_DEFAUT } from "@/lib/catalog";
+import { fusionDecoupes } from "@/lib/catalog";
 import { paiementActif } from "@/lib/stripe";
 import { payzenActif } from "@/lib/payzen";
 
@@ -17,7 +17,7 @@ export async function GET() {
   const liste = await clients();
   return NextResponse.json({
     admin: true, persistant, paiementActif: paiementActif || payzenActif,
-    decoupes: reg.decoupes || DECOUPES_DEFAUT,
+    decoupes: fusionDecoupes(reg.decoupes),
     clients: liste.map(({ codeHash, ...c }) => ({ ...c, aCode: !!codeHash })),
   });
 }
@@ -93,7 +93,7 @@ export async function POST(req) {
   }
   if (b.action === "decoupes") {
     const reg = (await get("reglages")) || {};
-    reg.decoupes = (b.decoupes || []).filter((d) => d.id && d.nom);
+    reg.decoupes = fusionDecoupes((b.decoupes || []).filter((d) => d.id && d.nom));
     await set("reglages", reg);
     return NextResponse.json({ ok: true });
   }

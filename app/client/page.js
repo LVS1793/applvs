@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { PRODUITS, PRODUITS_BY_ID, prixHT, totaux, libelle } from "@/lib/catalog";
+import { PRODUITS, PRODUITS_BY_ID, prixHT, totaux, libelle, decoupesDe } from "@/lib/catalog";
 import { datesPossibles, frDate, HEURE_LIMITE } from "@/lib/rules";
 
 const api = async (url, opts) => {
@@ -390,9 +390,9 @@ function Commande({ etat, recharger }) {
                 <div className="prix">{prixHT(p, mode)} XPF HT {p.cat === "emballe" && "· 48 h"}</div>
               </div>
               <input type="number" min="0" inputMode="numeric" value={l.qte || ""} placeholder="0" onChange={(e) => maj(p.id, "qte", Number(e.target.value))} />
-              {l.qte > 0 && (
-                <select value={l.decoupe} onChange={(e) => maj(p.id, "decoupe", e.target.value)}>
-                  {decoupes.map((d) => <option key={d.id} value={d.id}>Découpe : {d.nom}</option>)}
+              {l.qte > 0 && decoupesDe(p.id).length > 0 && (
+                <select value={decoupesDe(p.id).includes(l.decoupe) ? l.decoupe : "entier"} onChange={(e) => maj(p.id, "decoupe", e.target.value)}>
+                  {decoupes.filter((d) => d.id === "entier" || decoupesDe(p.id).includes(d.id)).map((d) => <option key={d.id} value={d.id}>Découpe : {d.nom}</option>)}
                 </select>
               )}
             </div>

@@ -324,17 +324,15 @@ function Decoupes({ etat, recharger }) {
   return (
     <div className="card">
       <h3>Découpes et codes couleur</h3>
-      <p className="muted">Mêmes couleurs que sur le grand tableau de production. Les couleurs proposées par défaut sont à valider avec l'équipe.</p>
+      <p className="muted">Découpes possibles uniquement sur : Panier complet (coupé long), Toast XXL, Seigle XXL, Complet XXL et Multigrains XXL (coupé fin), Sandwich (coupé long ou tranché à 2 cm), Brioché (non tranché), Grand brioché au lait (tranché à 2 cm). Les couleurs sont celles du grand tableau de production : à ajuster si besoin.</p>
       {d.map((x, i) => (
         <div className="row" key={i} style={{ marginBottom: 6 }}>
           <input type="color" value={x.couleur} onChange={(e) => maj(i, "couleur", e.target.value)} style={{ flex: "0 0 56px", padding: 2, height: 42 }} />
           <input value={x.nom} onChange={(e) => maj(i, "nom", e.target.value)} />
-          {x.id !== "entier" && <button style={{ flex: "none" }} onClick={() => setD(d.filter((_, j) => j !== i))}>✕</button>}
         </div>
       ))}
       <div className="row" style={{ marginTop: 8 }}>
-        <button onClick={() => setD([...d, { id: "d" + Date.now().toString(36), nom: "Nouvelle découpe", couleur: "#c4b5fd" }])}>+ Ajouter</button>
-        <button className="primaire" onClick={save}>Enregistrer</button>
+                <button className="primaire" onClick={save}>Enregistrer</button>
       </div>
       {ok && <div className="ok">Enregistré.</div>}
     </div>
