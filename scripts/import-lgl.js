@@ -324,7 +324,7 @@ for (const c of resultat.values()) {
   if (n && !c.livreur && livreurs[n]) c.livreur = livreurs[n];
 }
 
-const out = { genereLe: new Date().toISOString(), sources: Object.values(SRC), livreurs, clients: [...resultat.values()] };
+const out = { complet: true, genereLe: new Date().toISOString(), sources: Object.values(SRC), livreurs, clients: [...resultat.values()] };
 fs.writeFileSync(path.join(__dirname, "../lgl-clients.json"), JSON.stringify(out));
 const avecHab = out.clients.filter((c) => c.habitudes);
 console.log(`Clients : ${out.clients.length} · avec livreur : ${out.clients.filter((c) => c.livreur).length} · avec commandes habituelles : ${avecHab.length}/${habitudes.length}`);

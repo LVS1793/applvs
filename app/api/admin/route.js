@@ -76,7 +76,9 @@ export async function POST(req) {
       }, garde);
       parId.set(c.id, c); n++;
     }
-    await set("clients", [...parId.values()].filter((c) => !enArret(c.tournee)));
+    // Import complet (liste LGL entière) : les clients absents de LGL (ou passés en « Arrêt ») sont retirés
+    const presents = new Set((b.data?.clients || []).map((x) => String(x.id)));
+    await set("clients", [...parId.values()].filter((c) => !enArret(c.tournee) && (!b.data?.complet || presents.has(c.id))));
     if (b.data?.livreurs) await set("livreurs", b.data.livreurs);
     return NextResponse.json({ ok: true, n });
   }
