@@ -4,7 +4,7 @@ import { clients, get, set, persistant, incrementer, lireCompteur } from "@/lib/
 import { setSession, clearSession, estAdmin, hashCode } from "@/lib/auth";
 import { fusionDecoupes } from "@/lib/catalog";
 import { paiementActif } from "@/lib/stripe";
-import { supabaseActif, definirAcces, genererMotDePasse } from "@/lib/supabase";
+import { supabaseActif, definirAcces, genererMotDePasse, supprimerAcces } from "@/lib/supabase";
 import { payzenActif } from "@/lib/payzen";
 
 export const dynamic = "force-dynamic";
@@ -88,7 +88,7 @@ export async function POST(req) {
     const liste = await clients();
     if (!String(b.id || "").trim()) return NextResponse.json({ erreur: "ID manquant" }, { status: 400 });
     let c = liste.find((x) => x.id === String(b.id));
-    if (b.supprimer) { await set("clients", liste.filter((x) => x !== c)); return NextResponse.json({ ok: true }); }
+    if (b.supprimer) { if (c) await supprimerAcces(c); await set("clients", liste.filter((x) => x !== c)); return NextResponse.json({ ok: true }); }
     if (!c) { c = { id: String(b.id) }; liste.push(c); }
     const LIVREURS = { 1: "Jules", 2: "Tita", 3: "Edmond", 4: "Franck", 5: "Alexis", 6: "Antoine", 7: "Tomasi", 8: "Yoann" };
     const manuel = new Set(c.manuel || []);
