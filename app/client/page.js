@@ -82,7 +82,7 @@ function MesCommandes({ onModifier, rafraichir, initiaux }) {
   return (
     <div className="card">
       <h3 style={{ marginTop: 0 }}>Mes commandes des prochains jours</h3>
-      <p className="muted" style={{ marginTop: 0 }}>Votre commande d'office est déjà enregistrée : vous n'avez rien à faire. Modifiez-la ou annulez-la seulement si besoin, avant 13 h la veille (2 jours avant pour les pains emballés).</p>
+      <p className="muted" style={{ marginTop: 0 }}>Votre commande d'office est déjà enregistrée : vous n'avez rien à faire. Modifiez-la ou annulez-la seulement si besoin, jusqu'à la veille 13 h (le samedi 13 h pour le lundi).</p>
       {err && <div className="err">{err}</div>}
       {jours.map(({ date, office, autres, modifiable }) => (
         <div key={date} className="jour-cmd">

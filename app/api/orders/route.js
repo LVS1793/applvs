@@ -46,8 +46,7 @@ export async function POST(req) {
     if (s.comptant) return NextResponse.json({ erreur: "Non autorisé" }, { status: 403 });
     const o = await officeDuClient(client, b.date);
     if (!o) return NextResponse.json({ erreur: "Pas de commande d'office ce jour-là." }, { status: 404 });
-    const aEmb = o.lignes.some((l) => PRODUITS_BY_ID[l.produitId]?.cat === "emballe");
-    const err = verifierDate(b.date, o.mode, aEmb);
+    const err = verifierDate(b.date, o.mode, false); // commande d'office : jusqu'à la veille 13 h
     if (err) return NextResponse.json({ erreur: err.replace("Trop tard pour cette date", "Trop tard pour modifier") }, { status: 400 });
     if (b.action === "annulerOffice" && o.statut !== "annulee") { o.statutAvant = o.statut; o.statut = "annulee"; }
     if (b.action === "retablirOffice" && o.statut === "annulee") o.statut = o.statutAvant || "confirmee";
@@ -65,7 +64,9 @@ export async function POST(req) {
   if (!lignes.length && !suppSeul) return NextResponse.json({ erreur: "La commande est vide." }, { status: 400 });
 
   const aEmballes = lignes.some((l) => PRODUITS_BY_ID[l.produitId].cat === "emballe");
-  const errDate = verifierDate(b.date, mode, aEmballes);
+  // Commande d'office modifiée : jusqu'à la veille 13 h ; nouvelle commande : 48 h pour les pains emballés
+  const modifOffice = !!b.office && !s.comptant && !!habitudeDuJour(client, b.date);
+  const errDate = verifierDate(b.date, mode, modifOffice ? false : aEmballes);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(b.date || "") || errDate) return NextResponse.json({ erreur: errDate || "Date invalide." }, { status: 400 });
 
   const t = totaux(lignes, mode);
