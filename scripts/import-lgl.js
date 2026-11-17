@@ -40,7 +40,14 @@ const STOP = new Set(["SARL", "SAS", "SNACK", "ALIMENTATION", "CHEZ", "LE", "LA"
 const mots = (s) => norm(s).split(" ").filter((w) => w.length > 1 && !STOP.has(w) && !/^\d+$/.test(w));
 
 // ---------- 1. Base LGL ----------
-const base = Object.values(rows(SRC.base))[0].slice(1)
+// Source prioritaire : liste des clients extraite du LGL en ligne (gestion.lvs.nc → Clients), fichier lgl-base-web.tsv
+// (ID, Nom, Tournée). À défaut : l'ancien export Excel « Base de Données LGL.xlsx ».
+const BASE_WEB = path.join(__dirname, '../lgl-base-web.tsv');
+const lignesBase = fs.existsSync(BASE_WEB)
+  ? fs.readFileSync(BASE_WEB, "utf8").split(/\r?\n/).slice(1).map((l) => l.split("\t"))
+  : Object.values(rows(SRC.base))[0].slice(1);
+console.log('Base clients :', fs.existsSync(BASE_WEB) ? 'LGL en ligne (lgl-base-web.tsv)' : 'Excel');
+const base = lignesBase
   .filter((r) => r[0] !== "" && r[1])
   .filter((r) => !/^\s*arr[eêé]t/i.test(String(r[2] || ""))) // « Arrêt » = anciens clients
   .map((r) => ({ id: String(r[0]).trim(), nom: String(r[1]).trim(), tournee: String(r[2] || "").trim() || "Sans tournée" }));
@@ -160,7 +167,7 @@ for (const c of resultat.values()) {
 // Rapprochements vérifiés à la main (nom du tableau -> ID LGL). null = client absent de la base LGL.
 const FORCE = {
   "Super Mag": "698", "Superette 68": "87", "Ma Vie Là": "723", "Trait. Myshop": "727", "Traiteur Best. Super.": "346",
-  "Total Ducos": null, "Cosy Foch": null, "Magasin Val Plaisance": "146", "Bikini": "180", "Loulou": "194",
+  "Total Ducos": null, "Cosy Foch": "814", "The Road House": "816", "Lycée Pétro Atiti": "825", "Magasin Val Plaisance": "146", "Bikini": "180", "Loulou": "194",
 };
 const nonTrouves = [];
 for (const h of habitudes) {
@@ -264,12 +271,22 @@ const feuilleP = X.utils.sheet_to_json(wbP.Sheets[wbP.SheetNames[wbP.SheetNames.
 const nomsMagasins = feuilleP.map((r) => String(r[0]).trim()).filter((n) => n && !/^(PLANNING|NOM DES|LIVREUR|TOTAL|MISE A JOUR|MISE À JOUR)/i.test(n));
 const tous = [...resultat.values()];
 for (const n of nomsMagasins) { const c = strict(n, tous); if (c) c.planningMagasin = true; }
+// Fiche de préparation des snacks (service livraison) : liste des snacks préparés par tournée
+const PREP = process.env.LGL_PREP || "//nas/COMMUN/Livraison/Karen - Steph/FICHE DE PREPARATION DES SNACKS AVEC SUIVIS DES CONDITIONNEMENTS.xlsx";
+const nomsPrep = [];
+if (fs.existsSync(PREP)) for (const a of Object.values(rows(PREP))) for (const r of a) {
+  const n = String(r[0] || "").trim();
+  if (n && !/^(FICHE|NOM |PREPARATION|PRÉPARATION|SANS DEPOT|AVEC DEPOT|TOTAL|FOURNIL|LIVREUR)/i.test(n) && !n.includes("...") && !n.includes("…")) nomsPrep.push(n);
+}
+let prepOk = 0; const prepKo = [];
+for (const n of nomsPrep) { const c = strict(n, tous) || strict(n.replace(/SNACK/i, ""), tous); if (c) { c.ficheSnack = true; prepOk++; } else prepKo.push(n); }
+console.log("Fiche de préparation snacks :", prepOk, "/", nomsPrep.length, "rapprochés ; non trouvés :", prepKo.join(" | "));
 const motsSnack = /snack|food|truck|roulotte|burger|kebab|sandwich|croque|pizz|traiteur|restaurant|caf[eé]|coffee|\bbar\b|kitchen|chi?cken|chiken|\bcook\b|cuisto|grill|buffet|wings|tacos|deux coqs|boy n cow|single fin|mc ?donald/i;
 const pasSnack = /coll[eè]ge|lyc[eé]e|[eé]cole|school|maternelle|ehpad|amicale|tennis|basket|club|boucherie|supermarch|supermarket|magasin|[eé]picerie|alimentation|station|h[oô]tel|resort|carnet|test|boulangerie|ddec|fse\b|cise/i;
 for (const c of resultat.values()) {
   const type = String(c.type || "").toUpperCase();
   let cat;
-  if (c.nomTableau) cat = "snack";                                   // commande d'office snack
+  if (c.nomTableau || c.ficheSnack) cat = "snack";                   // commande d'office snack / fiche de préparation snacks
   else if (/\bsnack\b/i.test(c.nom)) cat = "snack";                  // « … (snack) » dans le nom LGL
   else if (c.planningMagasin) cat = "magasin";                       // livré au planning des magasins
   else if (/SNACK/.test(type)) cat = "snack";                        // SNACK, SNACK/MAGASIN, MAGASIN/SNACK

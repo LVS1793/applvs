@@ -5,3 +5,4 @@ node_modules
 .vercel
 lgl-clients.json
 .vercel
+lgl-base-web.tsv
