@@ -283,7 +283,7 @@ function Clients({ etat, recharger }) {
             <p className="muted">Chaque snack se connecte avec son numéro client et son mot de passe personnel. {etat.clients.filter((c) => c.aAcces).length} accès créés sur {etat.clients.filter((c) => !c.categorie || c.categorie === "snack").length} snacks.</p>
             <button className="primaire" onClick={() => creerAcces({ action: "accesTous" }, "Créer un mot de passe pour tous les snacks qui n'ont pas encore d'accès ?")}>Créer les accès manquants</button>
           </>
-        ) : <p className="muted">Les clients se connectent avec leur seul numéro client (ID LGL), que vous leur envoyez par mail.</p>}
+        ) : <p className="muted">Les clients se connectent avec leur seul ID client (ID LGL), que vous leur envoyez par mail.</p>}
         {acces && (
           <div style={{ marginTop: 10 }}>
             <div className="ok">⚠️ Notez ou téléchargez ces mots de passe maintenant : ils ne seront plus affichés. Remettez-les aux clients (pas par un canal public).</div>

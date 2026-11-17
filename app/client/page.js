@@ -225,10 +225,10 @@ function Onboarding({ ok, mdpRequis }) {
   return (
     <form onSubmit={go}>
       <h2>Bienvenue 👋</h2>
-      <p>Connectez-vous avec votre numéro client{mdpRequis ? " et votre mot de passe" : ""}.</p>
+      <p>Connectez-vous avec votre ID client{mdpRequis ? " et votre mot de passe" : ""}.</p>
       {err && <div className="err">{err}</div>}
       <div className="card">
-        <label>Numéro client La Vie Saine</label>
+        <label>ID client</label>
         <input inputMode="numeric" autoComplete="username" placeholder="ex. 1024" value={numero} onChange={(e) => { setNumero(e.target.value); if (!mdpRequis) setBesoinCode(false); }} autoFocus />
         {besoinCode && (
           <>
@@ -241,7 +241,7 @@ function Onboarding({ ok, mdpRequis }) {
         )}
         <button className="primaire gros" style={{ marginTop: 14 }} disabled={!numero.trim() || envoi || (besoinCode && !code)}>Entrer</button>
       </div>
-      <p className="muted">Votre numéro client figure sur vos factures. Pas encore d'accès ou mot de passe oublié ? Appelez La Vie Saine au 27 59 82.</p>
+      <p className="muted">Votre ID client vous a été envoyé par mail par La Vie Saine. Vous ne l'avez pas reçu ? Appelez le 27 59 82.</p>
     </form>
   );
 }

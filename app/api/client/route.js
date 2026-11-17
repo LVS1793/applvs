@@ -56,7 +56,7 @@ export async function POST(req) {
   if ((await lireCompteur(kf)) >= 10) return NextResponse.json({ erreur: "Trop d'essais. Réessayez dans 15 minutes ou appelez La Vie Saine." }, { status: 429 });
   const numero = String(b.numero || "").trim();
   const c = (await clientsActifs()).find((x) => x.id === numero);
-  if (!c) { await incrementer(kf, 900); return NextResponse.json({ erreur: "Numéro client inconnu. Vérifiez votre numéro ou appelez La Vie Saine." }, { status: 401 }); }
+  if (!c) { await incrementer(kf, 900); return NextResponse.json({ erreur: "ID client inconnu. Vérifiez votre ID (reçu par mail) ou appelez La Vie Saine au 27 59 82." }, { status: 401 }); }
   // Authentification Supabase : chaque client a son mot de passe personnel (créé par La Vie Saine).
   if (supabaseActif) {
     if (!c.supaId) return NextResponse.json({ besoinCode: true, erreur: "Votre accès n'est pas encore créé : appelez La Vie Saine au 27 59 82." }, { status: 401 });
