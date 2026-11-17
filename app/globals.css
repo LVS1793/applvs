@@ -86,3 +86,7 @@ html { -webkit-text-size-adjust: 100%; }
 .jour-cmd { border-top: 1px solid var(--bord); padding: 10px 0; }
 .jour-cmd:first-of-type { border-top: 0; }
 .jour-cmd .row button { flex: 1; }
+
+.mdp { position: relative; }
+.mdp input { padding-right: 48px; }
+.mdp .oeil { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); border: 0; background: transparent; color: var(--gris); padding: 6px 8px; min-height: 0; }
