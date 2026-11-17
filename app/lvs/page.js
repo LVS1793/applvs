@@ -213,13 +213,12 @@ function CommandeLivreur({ c, coul }) {
           <h3 style={{ margin: "0 0 4px" }}>{c.clientNom}</h3>
           <p>{c.mode === "retrait" ? "Retrait au fournil" : "Livraison"} · <Statut c={c} /> {((c.paiement === "comptant" && c.statut === "a_payer") || c.paiement === "livraison") && <b> — À ENCAISSER {xpf(c.ttc)}</b>}</p>
           <table>
-            <thead><tr><th className="n">Qté</th><th>Produit</th><th>Découpe</th><th>✓</th></tr></thead>
+            <thead><tr><th className="n">Qté</th><th>Produit</th><th>✓</th></tr></thead>
             <tbody>
               {c.lignes.map((l, i) => (
                 <tr key={i}>
                   <td className="n"><b style={{ fontSize: 16 }}>{l.qte}</b></td>
                   <td>{PRODUITS_BY_ID[l.produitId] ? libelle(PRODUITS_BY_ID[l.produitId]) : l.produitId}</td>
-                  <td style={{ background: coul[l.decoupe]?.couleur }}>{coul[l.decoupe]?.nom || l.decoupe}</td>
                   <td>☐</td>
                 </tr>
               ))}
