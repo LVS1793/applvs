@@ -167,7 +167,7 @@ for (const c of resultat.values()) {
 // Rapprochements vérifiés à la main (nom du tableau -> ID LGL). null = client absent de la base LGL.
 const FORCE = {
   "Super Mag": "698", "Superette 68": "87", "Ma Vie Là": "723", "Trait. Myshop": "727", "Traiteur Best. Super.": "346",
-  "Total Ducos": null, "Cosy Foch": "814", "The Road House": "816", "Lycée Pétro Atiti": "825", "Magasin Val Plaisance": "146", "Bikini": "180", "Loulou": "194",
+  "Total Ducos": null, "Cosy Foch": "814", "Traiteur Michel Ange": "737", "The Road House": "816", "Lycée Pétro Atiti": "825", "Magasin Val Plaisance": "146", "Bikini": "180", "Loulou": "194",
 };
 const nonTrouves = [];
 for (const h of habitudes) {
