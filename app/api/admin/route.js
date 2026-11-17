@@ -71,7 +71,8 @@ export async function POST(req) {
       const garde = Object.fromEntries((c.manuel || []).map((k) => [k, c[k]])); // modifications faites dans l'espace équipe
       Object.assign(c, {
         nom: s.nom, tournee: s.tournee || "Sans tournée", livreur: s.livreur || null, type: s.type || null,
-        paiement: s.paiement || c.paiement || "compte", habitudes: s.habitudes || null, remarque: s.remarque || null, produits: s.produits || null, categorie: s.categorie || null,
+        paiement: s.reglement ? (s.reglement === "comptant" ? "livraison" : "compte") : s.paiement || c.paiement || "compte",
+        reglement: s.reglement || null, habitudes: s.habitudes || null, remarque: s.remarque || null, produits: s.produits || null, categorie: s.categorie || null,
         mode: c.mode || (/fournil/i.test(s.tournee || "") ? "retrait" : "livraison"),
       }, garde);
       parId.set(c.id, c); n++;

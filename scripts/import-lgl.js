@@ -332,6 +332,25 @@ for (const c of resultat.values()) {
 }
 if (factures) console.log("Factures LGL :", Object.keys(factures.res || {}).length, "clients lus · produits facturés absents du catalogue :", JSON.stringify(inconnusFactures));
 
+// Mode de règlement d'après les relevés LGL (fichier releves-lgl.json, dates des relevés depuis juillet 2026) :
+// relevés tous les 15 jours = à la quinzaine ; relevés mensuels = au mois ; aucun relevé = comptant.
+const RELEVES = path.join(__dirname, "../releves-lgl.json");
+const releves = fs.existsSync(RELEVES) ? JSON.parse(fs.readFileSync(RELEVES, "utf8")).res || {} : null;
+if (releves) {
+  const stat = {};
+  for (const c of resultat.values()) {
+    const dates = releves[c.id];
+    if (!dates) continue;
+    // quinzaine = 2 relevés espacés d'au moins 10 jours dans un même mois, sur au moins 2 mois
+    // (deux relevés à 1 jour d'écart = correction de relevé, pas une quinzaine)
+    const parMois = {}; dates.forEach((d) => { (parMois[d.slice(0, 7)] = parMois[d.slice(0, 7)] || []).push(+d.slice(8)); });
+    const moisQuinzaine = Object.values(parMois).filter((j) => j.length >= 2 && Math.max(...j) - Math.min(...j) >= 10).length;
+    c.reglement = moisQuinzaine >= 2 ? "quinzaine" : dates.length ? "mois" : "comptant";
+    stat[c.reglement] = (stat[c.reglement] || 0) + 1;
+  }
+  console.log("Règlements (relevés LGL) :", JSON.stringify(stat));
+}
+
 // Nom du livreur par numéro (déduit des feuilles CLIENTS LGL)
 const livreurs = {};
 for (const i of infos.values()) if (i.livreurNum && i.livreurNom) livreurs[i.livreurNum] = i.livreurNom;

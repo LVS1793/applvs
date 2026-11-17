@@ -217,14 +217,16 @@ function Livreurs({ cmds, coul, date }) {
 }
 
 // Le livreur encaisse les clients au comptant et ceux en « règlement à la livraison »
+const REGLEMENT = { comptant: "Comptant", quinzaine: "À la quinzaine", mois: "Au mois" };
+const libReglement = (c) => REGLEMENT[c.reglement] || (c.paiement === "compte" ? "Au mois" : "Comptant");
 const aEncaisser = (c) => (c.paiement === "comptant" && c.statut === "a_payer") || c.paiement === "livraison";
 
 function CommandeLivreur({ c, coul }) {
   return (
         <div className="card">
           <h3 style={{ margin: "0 0 4px" }}>{c.clientNom}</h3>
-          <p>{c.mode === "retrait" ? "Retrait au fournil" : "Livraison"} · <Statut c={c} /></p>
-          <p className="encaisser">{aEncaisser(c) ? <>À ENCAISSER : <b>{xpf(c.ttc)}</b> TTC</> : <>Montant : <b>{xpf(c.ttc)}</b> TTC — sur le relevé mensuel (rien à encaisser)</>}</p>
+          <p>{c.mode === "retrait" ? "Retrait au fournil" : "Livraison"} · Règlement : <b>{libReglement(c)}</b> · <Statut c={c} /></p>
+          <p className="encaisser">{aEncaisser(c) ? <>À ENCAISSER : <b>{xpf(c.ttc)}</b> TTC</> : <>Montant : <b>{xpf(c.ttc)}</b> TTC — sur le relevé {c.reglement === "quinzaine" ? "de la quinzaine" : "du mois"} (rien à encaisser)</>}</p>
           <table>
             <thead><tr><th className="n">Qté</th><th>Produit</th><th>✓</th></tr></thead>
             <tbody>
@@ -313,11 +315,11 @@ function Clients({ etat, recharger }) {
       )}
       <div className="card table-scroll">
         <table>
-          <thead><tr><th>ID</th><th>Nom</th><th className="hide-mobile">Tournée</th><th>Livreur</th><th className="hide-mobile">Paiement</th><th>Type</th><th className="hide-mobile">Habitudes</th><th className="hide-mobile">Mot de passe</th></tr></thead>
+          <thead><tr><th>ID</th><th>Nom</th><th className="hide-mobile">Tournée</th><th>Livreur</th><th className="hide-mobile">Règlement</th><th>Type</th><th className="hide-mobile">Habitudes</th><th className="hide-mobile">Mot de passe</th></tr></thead>
           <tbody>
             {liste.map((c) => (
               <tr key={c.id} onClick={() => setEdit({ ...c, code: "" })} style={{ cursor: "pointer" }}>
-                <td>{c.id}</td><td>{c.nom}</td><td className="hide-mobile">{c.tournee}</td><td>{c.livreur || ""}</td><td className="hide-mobile">{c.paiement}</td><td>{c.categorie === "snack" || !c.categorie ? <span className="badge vert">Snack</span> : <span className="badge">{c.categorie}</span>}</td><td className="hide-mobile">{c.habitudes ? Object.keys(c.habitudes).map((j) => j.slice(0, 3)).join(" ") : ""}</td><td className="hide-mobile">{c.aCode ? "✔ créé" : <span className="badge ambre">pas encore</span>}</td>
+                <td>{c.id}</td><td>{c.nom}</td><td className="hide-mobile">{c.tournee}</td><td>{c.livreur || ""}</td><td className="hide-mobile">{libReglement(c)}</td><td>{c.categorie === "snack" || !c.categorie ? <span className="badge vert">Snack</span> : <span className="badge">{c.categorie}</span>}</td><td className="hide-mobile">{c.habitudes ? Object.keys(c.habitudes).map((j) => j.slice(0, 3)).join(" ") : ""}</td><td className="hide-mobile">{c.aCode ? "✔ créé" : <span className="badge ambre">pas encore</span>}</td>
               </tr>
             ))}
           </tbody>

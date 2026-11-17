@@ -93,6 +93,7 @@ export async function POST(req) {
     clientId: client.id, clientNom: client.nom,
     tournee: mode === "retrait" ? "Fournil" : client.tournee || "Sans tournée",
     paiement: ["comptant", "livraison"].includes(client.paiement) ? client.paiement : "compte",
+    reglement: client.reglement || null,
     livreur: mode === "retrait" ? null : client.livreur || null,
     lignes, note: String(b.note || "").slice(0, 500),
     ...t,

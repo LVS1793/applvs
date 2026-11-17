@@ -22,7 +22,7 @@ export async function GET() {
     else {
       const c = liste.find((x) => x.id === s.id);
       if (c) moi = {
-        id: c.id, nom: c.nom, paiement: c.paiement, tournee: c.tournee, mode: c.mode || "livraison",
+        id: c.id, nom: c.nom, paiement: c.paiement, reglement: c.reglement || null, tournee: c.tournee, mode: c.mode || "livraison",
         livreur: c.livreur || null, type: c.type || null, habitudes: c.habitudes || null, remarque: c.remarque || null, produits: c.produits || null,
       };
     }

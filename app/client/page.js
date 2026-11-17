@@ -316,7 +316,7 @@ function Commande({ etat, recharger }) {
       <h2>Bonjour {moi.nom}</h2>
       {!moi.comptant && <MonEspace moi={moi} mode={mode} />}
       <p className="muted">
-        {enLigne ? "Paiement en ligne à la commande." : moi.paiement === "livraison" || moi.paiement === "comptant" ? "Règlement à la livraison." : "Facturé sur votre compte (relevé LGL)."} Commandes avant {HEURE_LIMITE} h :
+        {enLigne ? "Paiement en ligne à la commande." : moi.reglement === "quinzaine" ? "Règlement à la quinzaine (relevé tous les 15 jours)." : moi.reglement === "mois" ? "Règlement au mois (relevé mensuel)." : moi.paiement === "livraison" || moi.paiement === "comptant" || moi.reglement === "comptant" ? "Règlement comptant, à la livraison." : "Règlement au mois (relevé mensuel)."} Commandes avant {HEURE_LIMITE} h :
         24 h à l'avance pour le snacking, 48 h pour les pains emballés. Lundi : commander le samedi avant 13 h.
       </p>
 
