@@ -93,7 +93,7 @@ export async function POST(req) {
     const manuel = new Set(c.manuel || []);
     for (const k of ["nom", "tournee", "paiement", "mode", "categorie", "livreur"]) if (b[k] != null && b[k] !== c[k]) { c[k] = b[k]; manuel.add(k); }
     if (b.tournee != null && b.livreur == null) { // livreur et mode déduits de la tournée
-      const n = (String(b.tournee).match(/Livreurs*(d+)/i) || [])[1];
+      const n = (String(b.tournee).match(/Livreur\s*(\d+)/i) || [])[1];
       c.livreur = n ? LIVREURS[n] || null : null; manuel.add("livreur");
       if (b.mode == null) { c.mode = /fournil/i.test(b.tournee) ? "retrait" : "livraison"; manuel.add("mode"); }
     }
