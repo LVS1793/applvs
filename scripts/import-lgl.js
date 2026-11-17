@@ -310,11 +310,27 @@ for (const c of resultat.values()) {
   delete c.ficheChargement;
 }
 
-// Liste des produits proposés à chaque client = produits de ses chargements + commandes d'office
+// Liste des produits proposés à chaque client = produits FACTURÉS (10 dernières livraisons LGL, fichier factures-lgl.json)
+// + produits de sa commande d'office. Le fichier factures-lgl.json est extrait du LGL en ligne (pages « Livraisons » des clients).
+const { produitFacture } = require("./produits-factures.js");
+const FACTURES = path.join(__dirname, "../factures-lgl.json");
+const factures = fs.existsSync(FACTURES) ? JSON.parse(fs.readFileSync(FACTURES, "utf8")) : null;
+const inconnusFactures = {};
 for (const c of resultat.values()) {
   const ids = new Set(Object.values(c.habitudes || {}).flatMap((j) => j.lignes.map((l) => l.produitId)));
-  if (ids.size) c.produits = [...ids];
+  const f = factures?.res?.[c.id];
+  if (f) {
+    c.nbFactures = f.n;
+    for (const nom of Object.keys(f.prod)) {
+      const id = produitFacture(nom);
+      if (id) ids.add(id);
+      else if (id === undefined) inconnusFactures[nom] = (inconnusFactures[nom] || 0) + 1;
+    }
+  }
+  if (c.categorie !== "snack") { delete c.produits; continue; }
+  if (ids.size) c.produits = [...ids]; else delete c.produits;
 }
+if (factures) console.log("Factures LGL :", Object.keys(factures.res || {}).length, "clients lus · produits facturés absents du catalogue :", JSON.stringify(inconnusFactures));
 
 // Nom du livreur par numéro (déduit des feuilles CLIENTS LGL)
 const livreurs = {};
