@@ -5,6 +5,7 @@ import { paiementActif } from "@/lib/stripe";
 import { payzenActif } from "@/lib/payzen";
 import { setSession, sessionClient, clearSession, hashCode } from "@/lib/auth";
 import { supabaseActif, verifierClient, definirAcces } from "@/lib/supabase";
+import { mesJours } from "@/lib/mes-jours";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ const clientsActifs = async () => (await clients()).filter((c) => !enArret(c.tou
 export async function GET() {
   const liste = await clientsActifs();
   const s = sessionClient();
-  let moi = null, historique = [];
+  let moi = null, historique = [], jours = null;
   if (s) {
     if (s.comptant) moi = { nom: s.nom, paiement: "comptant", tournee: "Sans tournée", comptant: true };
     else {
@@ -27,11 +28,15 @@ export async function GET() {
         livreur: c.livreur || null, type: c.type || null, habitudes: c.habitudes || null, remarque: c.remarque || null, produits: c.produits || null,
       };
     }
-    historique = await get(`hist:${s.comptant ? "cpt:" + s.nom : s.id}`, []);
+    const c = !s.comptant && liste.find((x) => x.id === s.id);
+    [historique, jours] = await Promise.all([
+      get(`hist:${s.comptant ? "cpt:" + s.nom : s.id}`, []),
+      c && c.habitudes ? mesJours(c) : null,
+    ]);
   }
   return NextResponse.json({
     // Aucune liste d'établissements n'est envoyée : le client se connecte avec son numéro (ID LGL).
-    moi, historique, paiementEnLigne: paiementActif || payzenActif, motDePasseRequis: supabaseActif,
+    moi, historique, jours, paiementEnLigne: paiementActif || payzenActif, motDePasseRequis: supabaseActif,
     decoupes: fusionDecoupes(((await get("reglages")) || {}).decoupes),
   });
 }

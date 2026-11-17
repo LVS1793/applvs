@@ -69,11 +69,11 @@ function MonEspace({ moi, mode }) {
 }
 
 // Commandes d'office des prochains jours : déjà en place, le client peut seulement les modifier ou les annuler
-function MesCommandes({ onModifier, rafraichir }) {
-  const [jours, setJours] = useState(null);
+function MesCommandes({ onModifier, rafraichir, initiaux }) {
+  const [jours, setJours] = useState(initiaux || null);
   const [err, setErr] = useState(null);
   const charger = () => api("/api/orders?mes=1").then((r) => setJours(r.jours)).catch((e) => setErr(e.message));
-  useEffect(() => { charger(); }, [rafraichir]);
+  useEffect(() => { if (rafraichir || !initiaux) charger(); }, [rafraichir]);
   const action = async (date, a) => {
     setErr(null);
     try { await api("/api/orders", { method: "POST", body: JSON.stringify({ action: a, date }) }); charger(); } catch (e) { setErr(e.message); }
@@ -352,7 +352,7 @@ function Commande({ etat, recharger }) {
         24 h à l'avance pour le snacking, 48 h pour les pains emballés. Lundi : commander le samedi avant 13 h.
       </p>
 
-      {aOffice && <MesCommandes onModifier={modifierOffice} rafraichir={rafraichir} />}
+      {aOffice && <MesCommandes onModifier={modifierOffice} rafraichir={rafraichir} initiaux={etat.jours} />}
       {aOffice && !formulaireOuvert && (
         <button className="gros" onClick={() => { setEdition(null); setLignes({}); setFormulaireOuvert(true); }}>➕ Passer une commande en plus</button>
       )}

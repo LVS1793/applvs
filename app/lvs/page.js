@@ -277,13 +277,13 @@ function Clients({ etat, recharger }) {
   return (
     <>
       <div className="card">
-        <h3>Accès des clients (identifiant = numéro client)</h3>
+        <h3>Accès des clients</h3>
         {etat.supabaseActif ? (
           <>
             <p className="muted">Chaque snack se connecte avec son numéro client et son mot de passe personnel. {etat.clients.filter((c) => c.aAcces).length} accès créés sur {etat.clients.filter((c) => !c.categorie || c.categorie === "snack").length} snacks.</p>
             <button className="primaire" onClick={() => creerAcces({ action: "accesTous" }, "Créer un mot de passe pour tous les snacks qui n'ont pas encore d'accès ?")}>Créer les accès manquants</button>
           </>
-        ) : <p className="err">Supabase n'est pas encore configuré : les clients se connectent avec leur seul numéro.</p>}
+        ) : <p className="muted">Les clients se connectent avec leur seul numéro client (ID LGL), que vous leur envoyez par mail.</p>}
         {acces && (
           <div style={{ marginTop: 10 }}>
             <div className="ok">⚠️ Notez ou téléchargez ces mots de passe maintenant : ils ne seront plus affichés. Remettez-les aux clients (pas par un canal public).</div>
@@ -350,7 +350,7 @@ function Clients({ etat, recharger }) {
           <tbody>
             {liste.map((c) => (
               <tr key={c.id} onClick={() => setEdit({ ...c, code: "" })} style={{ cursor: "pointer" }}>
-                <td>{c.id}</td><td>{c.nom}</td><td className="hide-mobile">{c.tournee}</td><td>{c.livreur || ""}</td><td className="hide-mobile">{libReglement(c)}</td><td>{c.categorie === "snack" || !c.categorie ? <span className="badge vert">Snack</span> : <span className="badge">{c.categorie}</span>}</td><td className="hide-mobile">{c.habitudes ? Object.keys(c.habitudes).map((j) => j.slice(0, 3)).join(" ") : ""}</td><td className="hide-mobile">{c.aAcces ? "✔" : <span className="badge ambre">non</span>}</td>
+                <td>{c.id}</td><td>{c.nom}</td><td className="hide-mobile">{c.tournee}</td><td>{c.livreur || ""}</td><td className="hide-mobile">{libReglement(c)}</td><td>{c.categorie === "snack" || !c.categorie ? <span className="badge vert">Snack</span> : <span className="badge">{c.categorie}</span>}</td><td className="hide-mobile">{c.joursHab ? c.joursHab.map((j) => j.slice(0, 3)).join(" ") : ""}</td><td className="hide-mobile">{c.aAcces ? "✔" : <span className="badge ambre">non</span>}</td>
               </tr>
             ))}
           </tbody>

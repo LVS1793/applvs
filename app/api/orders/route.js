@@ -4,6 +4,7 @@ import { clients, commandesDuJour, ecrireCommande, lireCommande, get, set } from
 import { sessionClient, estAdmin } from "@/lib/auth";
 import { PRODUITS_BY_ID, totaux, decoupeValide } from "@/lib/catalog";
 import { verifierDate, maintenantNC } from "@/lib/rules";
+import { mesJours } from "@/lib/mes-jours";
 import { creerCheckout, paiementActif } from "@/lib/stripe";
 import { toutesLesCommandes, officeDuClient, genererOffice, habitudeDuJour, idOffice } from "@/lib/office";
 import { payzenActif, formulairePayzen } from "@/lib/payzen";
@@ -21,20 +22,7 @@ export async function GET(req) {
     if (!s || s.comptant) return NextResponse.json({ erreur: "Connectez-vous d'abord." }, { status: 401 });
     const client = (await clients()).find((c) => c.id === s.id);
     if (!client) return NextResponse.json({ erreur: "Compte introuvable." }, { status: 404 });
-    const now = maintenantNC();
-    const jours = [];
-    const d = new Date(now.date + "T12:00:00Z");
-    while (jours.length < 8) {
-      d.setUTCDate(d.getUTCDate() + 1);
-      if (d.getUTCDay() !== 0) jours.push(d.toISOString().slice(0, 10));
-    }
-    const res = await Promise.all(jours.map(async (date) => {
-      const office = await officeDuClient(client, date);
-      const autres = (await commandesDuJour(date)).filter((c) => c.clientId === client.id && !c.office);
-      const aEmb = (office?.lignes || []).some((l) => PRODUITS_BY_ID[l.produitId]?.cat === "emballe");
-      return { date, office, autres, modifiable: !verifierDate(date, office?.mode || "livraison", aEmb, now) };
-    }));
-    return NextResponse.json({ jours: res });
+    return NextResponse.json({ jours: await mesJours(client) });
   }
   if (!estAdmin()) return NextResponse.json({ erreur: "Non autorisé" }, { status: 401 });
   return NextResponse.json({ commandes: await toutesLesCommandes(u.get("date")) });

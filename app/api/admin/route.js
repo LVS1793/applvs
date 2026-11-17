@@ -19,7 +19,7 @@ export async function GET() {
   return NextResponse.json({
     admin: true, persistant, paiementActif: paiementActif || payzenActif,
     decoupes: fusionDecoupes(reg.decoupes),
-    clients: liste.map(({ codeHash, supaId, ...c }) => ({ ...c, aCode: !!codeHash, aAcces: !!supaId })), supabaseActif,
+    clients: liste.map(({ codeHash, supaId, habitudes, produits, remarque, ...c }) => ({ ...c, aCode: !!codeHash, aAcces: !!supaId, joursHab: habitudes ? Object.keys(habitudes) : null })), supabaseActif,
   });
 }
 
