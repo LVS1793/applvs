@@ -140,6 +140,33 @@ function CreerMotDePasse({ moi, ok }) {
   );
 }
 
+// Le client change lui-même son mot de passe (Supabase)
+function ChangerMotDePasse() {
+  const [ouvert, setOuvert] = useState(false);
+  const [a, setA] = useState(""); const [n, setN] = useState(""); const [c, setC] = useState("");
+  const [msg, setMsg] = useState(null);
+  const go = async (e) => {
+    e.preventDefault(); setMsg(null);
+    if (n !== c) return setMsg({ err: "Les deux nouveaux mots de passe sont différents." });
+    try { await api("/api/client", { method: "PUT", body: JSON.stringify({ ancienCode: a, nouveauCode: n }) }); setMsg({ ok: "Mot de passe changé." }); setA(""); setN(""); setC(""); setOuvert(false); }
+    catch (x) { setMsg({ err: x.message }); }
+  };
+  if (!ouvert) return <p style={{ margin: "0 0 8px" }}><button className="lien" onClick={() => { setOuvert(true); setMsg(null); }}>🔑 Changer mon mot de passe</button>{msg?.ok && <span className="muted"> — {msg.ok}</span>}</p>;
+  return (
+    <form className="card" onSubmit={go}>
+      <h3 style={{ marginTop: 0 }}>Changer mon mot de passe</h3>
+      {msg?.err && <div className="err">{msg.err}</div>}
+      <label>Mot de passe actuel</label><input type="password" autoComplete="current-password" value={a} onChange={(e) => setA(e.target.value)} />
+      <label>Nouveau mot de passe (6 caractères minimum)</label><input type="password" autoComplete="new-password" value={n} onChange={(e) => setN(e.target.value)} />
+      <label>Confirmez le nouveau mot de passe</label><input type="password" autoComplete="new-password" value={c} onChange={(e) => setC(e.target.value)} />
+      <div className="row" style={{ marginTop: 10 }}>
+        <button className="primaire" disabled={!a || n.length < 6 || !c}>Enregistrer</button>
+        <button type="button" onClick={() => setOuvert(false)}>Annuler</button>
+      </div>
+    </form>
+  );
+}
+
 export default function Client() {
   const [etat, setEtat] = useState(null);
   const [msg, setMsg] = useState(null);
@@ -170,16 +197,17 @@ export default function Client() {
       </header>
       <main className="wrap">
         {msg && <div className={msg.startsWith("✅") ? "ok" : "err"}>{msg}</div>}
-        {!etat ? <p className="muted">Chargement…</p> : etat.moi ? (etat.moi.doitCreerCode && !etat.moi.comptant ? <CreerMotDePasse moi={etat.moi} ok={charger} /> : <Commande etat={etat} recharger={charger} />) : <Onboarding ok={charger} />}
+        {!etat ? <p className="muted">Chargement…</p> : etat.moi ? (etat.moi.doitCreerCode && !etat.moi.comptant ? <CreerMotDePasse moi={etat.moi} ok={charger} /> : <Commande etat={etat} recharger={charger} />) : <Onboarding ok={charger} mdpRequis={etat.motDePasseRequis} />}
       </main>
     </>
   );
 }
 
-function Onboarding({ ok }) {
+function Onboarding({ ok, mdpRequis }) {
   const [numero, setNumero] = useState("");
   const [code, setCode] = useState("");
-  const [besoinCode, setBesoinCode] = useState(false);
+  const [voir, setVoir] = useState(false);
+  const [besoinCode, setBesoinCode] = useState(!!mdpRequis);
   const [err, setErr] = useState(null);
   const [envoi, setEnvoi] = useState(false);
 
@@ -197,20 +225,23 @@ function Onboarding({ ok }) {
   return (
     <form onSubmit={go}>
       <h2>Bienvenue 👋</h2>
-      <p>Connectez-vous avec votre numéro client.</p>
+      <p>Connectez-vous avec votre numéro client{mdpRequis ? " et votre mot de passe" : ""}.</p>
       {err && <div className="err">{err}</div>}
       <div className="card">
         <label>Numéro client La Vie Saine</label>
-        <input inputMode="numeric" autoComplete="username" placeholder="ex. 1024" value={numero} onChange={(e) => { setNumero(e.target.value); setBesoinCode(false); }} autoFocus />
+        <input inputMode="numeric" autoComplete="username" placeholder="ex. 1024" value={numero} onChange={(e) => { setNumero(e.target.value); if (!mdpRequis) setBesoinCode(false); }} autoFocus />
         {besoinCode && (
           <>
-            <label>Code personnel</label>
-            <input type="password" inputMode="numeric" autoComplete="current-password" value={code} onChange={(e) => setCode(e.target.value)} />
+            <label>Mot de passe</label>
+            <div className="mdp">
+              <input type={voir ? "text" : "password"} autoComplete="current-password" value={code} onChange={(e) => setCode(e.target.value)} />
+              <button type="button" className="oeil" onClick={() => setVoir(!voir)} aria-label={voir ? "Masquer le mot de passe" : "Afficher le mot de passe"}>{voir ? "🙈" : "👁"}</button>
+            </div>
           </>
         )}
         <button className="primaire gros" style={{ marginTop: 14 }} disabled={!numero.trim() || envoi || (besoinCode && !code)}>Entrer</button>
       </div>
-      <p className="muted">Votre numéro client figure sur vos factures. Pas encore de compte ? Appelez La Vie Saine.</p>
+      <p className="muted">Votre numéro client figure sur vos factures. Pas encore d'accès ou mot de passe oublié ? Appelez La Vie Saine au 27 59 82.</p>
     </form>
   );
 }
@@ -314,6 +345,7 @@ function Commande({ etat, recharger }) {
   return (
     <>
       <h2>Bonjour {moi.nom}</h2>
+      {etat.motDePasseRequis && !moi.comptant && <ChangerMotDePasse />}
       {!moi.comptant && <MonEspace moi={moi} mode={mode} />}
       <p className="muted">
         {enLigne ? "Paiement en ligne à la commande." : moi.reglement === "quinzaine" ? "Règlement à la quinzaine (relevé tous les 15 jours)." : moi.reglement === "mois" ? "Règlement au mois (relevé mensuel)." : moi.paiement === "livraison" || moi.paiement === "comptant" || moi.reglement === "comptant" ? "Règlement comptant, à la livraison." : "Règlement au mois (relevé mensuel)."} Commandes avant {HEURE_LIMITE} h :

@@ -4,6 +4,7 @@ import { fusionDecoupes } from "@/lib/catalog";
 import { paiementActif } from "@/lib/stripe";
 import { payzenActif } from "@/lib/payzen";
 import { setSession, sessionClient, clearSession, hashCode } from "@/lib/auth";
+import { supabaseActif, verifierClient, definirAcces } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ export async function GET() {
   }
   return NextResponse.json({
     // Aucune liste d'établissements n'est envoyée : le client se connecte avec son numéro (ID LGL).
-    moi, historique, paiementEnLigne: paiementActif || payzenActif,
+    moi, historique, paiementEnLigne: paiementActif || payzenActif, motDePasseRequis: supabaseActif,
     decoupes: fusionDecoupes(((await get("reglages")) || {}).decoupes),
   });
 }
@@ -51,7 +52,12 @@ export async function POST(req) {
   const numero = String(b.numero || "").trim();
   const c = (await clientsActifs()).find((x) => x.id === numero);
   if (!c) { await incrementer(kf, 900); return NextResponse.json({ erreur: "Numéro client inconnu. Vérifiez votre numéro ou appelez La Vie Saine." }, { status: 401 }); }
-  // Connexion simple : le numéro client (ID LGL) suffit.
+  // Authentification Supabase : chaque client a son mot de passe personnel (créé par La Vie Saine).
+  if (supabaseActif) {
+    if (!c.supaId) return NextResponse.json({ besoinCode: true, erreur: "Votre accès n'est pas encore créé : appelez La Vie Saine au 27 59 82." }, { status: 401 });
+    if (!b.code) return NextResponse.json({ besoinCode: true, erreur: "Saisissez votre mot de passe." }, { status: 401 });
+    if (!(await verifierClient(c.id, b.code))) { await incrementer(kf, 900); return NextResponse.json({ besoinCode: true, erreur: "Numéro client ou mot de passe incorrect." }, { status: 401 }); }
+  }
   setSession("lvs_client", { id: c.id });
   return NextResponse.json({ ok: true });
 }
@@ -67,6 +73,13 @@ export async function PUT(req) {
   const c = liste.find((x) => x.id === s.id);
   if (!c) return NextResponse.json({ erreur: "Compte introuvable." }, { status: 404 });
   if (nouveau.trim() === c.id) return NextResponse.json({ erreur: "Le mot de passe ne peut pas être votre numéro client." }, { status: 400 });
+  if (supabaseActif) {
+    if (!(await verifierClient(c.id, b.ancienCode))) return NextResponse.json({ erreur: "Mot de passe actuel incorrect." }, { status: 401 });
+    c.supaId = await definirAcces(c, nouveau);
+    c.accesModifieLe = new Date().toISOString();
+    await set("clients", liste);
+    return NextResponse.json({ ok: true });
+  }
   if (c.codeHash && c.codeHash !== hashCode(b.ancienCode)) return NextResponse.json({ erreur: "Ancien mot de passe incorrect." }, { status: 401 });
   c.codeHash = hashCode(nouveau);
   await set("clients", liste);

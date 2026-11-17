@@ -4,6 +4,7 @@ import { clients, get, set, persistant, incrementer, lireCompteur } from "@/lib/
 import { setSession, clearSession, estAdmin, hashCode } from "@/lib/auth";
 import { fusionDecoupes } from "@/lib/catalog";
 import { paiementActif } from "@/lib/stripe";
+import { supabaseActif, definirAcces, genererMotDePasse } from "@/lib/supabase";
 import { payzenActif } from "@/lib/payzen";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +19,7 @@ export async function GET() {
   return NextResponse.json({
     admin: true, persistant, paiementActif: paiementActif || payzenActif,
     decoupes: fusionDecoupes(reg.decoupes),
-    clients: liste.map(({ codeHash, ...c }) => ({ ...c, aCode: !!codeHash })),
+    clients: liste.map(({ codeHash, supaId, ...c }) => ({ ...c, aCode: !!codeHash, aAcces: !!supaId })), supabaseActif,
   });
 }
 
@@ -102,6 +103,23 @@ export async function POST(req) {
     if (b.resetCode) delete c.codeHash; // le client recrée son mot de passe à la prochaine connexion
     await set("clients", liste);
     return NextResponse.json({ ok: true });
+  }
+  // Accès Supabase des clients : création ou réinitialisation (le mot de passe n'est montré qu'une fois)
+  if (b.action === "acces" || b.action === "accesTous") {
+    if (!supabaseActif) return NextResponse.json({ erreur: "Supabase n'est pas encore configuré." }, { status: 503 });
+    const liste = await clients();
+    const cibles = b.action === "acces"
+      ? liste.filter((c) => c.id === String(b.id))
+      : liste.filter((c) => !c.supaId && (!c.categorie || c.categorie === "snack") && !enArret(c.tournee));
+    const crees = [];
+    for (const c of cibles) {
+      const mdp = b.action === "acces" && b.motDePasse ? String(b.motDePasse) : genererMotDePasse();
+      if (mdp.length < 6) return NextResponse.json({ erreur: "6 caractères minimum." }, { status: 400 });
+      try { c.supaId = await definirAcces(c, mdp); c.accesModifieLe = new Date().toISOString(); crees.push({ id: c.id, nom: c.nom, motDePasse: mdp }); }
+      catch (e) { crees.push({ id: c.id, nom: c.nom, erreur: e.message }); }
+    }
+    await set("clients", liste);
+    return NextResponse.json({ ok: true, crees });
   }
   if (b.action === "decoupes") {
     const reg = (await get("reglages")) || {};

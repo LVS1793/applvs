@@ -253,6 +253,18 @@ function Clients({ etat, recharger }) {
   const [msg, setMsg] = useState(null);
   const [f, setF] = useState("");
   const [edit, setEdit] = useState(null);
+  const [acces, setAcces] = useState(null); // accès créés (mots de passe affichés une seule fois)
+  const creerAcces = async (body, question) => {
+    if (!confirm(question)) return;
+    try { const r = await api("/api/admin", { method: "POST", body: JSON.stringify(body) }); setAcces(r.crees); recharger(); }
+    catch (x) { alert(x.message); }
+  };
+  const telechargerAcces = () => {
+    const NL = String.fromCharCode(10);
+    const csv = "Numéro client;Nom;Mot de passe" + NL + acces.filter((a) => a.motDePasse).map((a) => `${a.id};"${a.nom.replace(/"/g, "'")}";${a.motDePasse}`).join(NL);
+    const url = URL.createObjectURL(new Blob([String.fromCharCode(0xfeff) + csv], { type: "text/csv;charset=utf-8" }));
+    const l = document.createElement("a"); l.href = url; l.download = "acces-clients-la-vie-saine.csv"; l.click(); URL.revokeObjectURL(url);
+  };
   const importer = async () => {
     const r = await api("/api/admin", { method: "POST", body: JSON.stringify({ action: "import", texte }) });
     setMsg(`${r.n} client(s) importé(s) / mis à jour.`); setTexte(""); recharger();
@@ -264,6 +276,24 @@ function Clients({ etat, recharger }) {
   const liste = etat.clients.filter((c) => (c.nom + c.id + c.tournee).toLowerCase().includes(f.toLowerCase())).sort((a, b) => a.nom.localeCompare(b.nom));
   return (
     <>
+      <div className="card">
+        <h3>Accès des clients (identifiant = numéro client)</h3>
+        {etat.supabaseActif ? (
+          <>
+            <p className="muted">Chaque snack se connecte avec son numéro client et son mot de passe personnel. {etat.clients.filter((c) => c.aAcces).length} accès créés sur {etat.clients.filter((c) => !c.categorie || c.categorie === "snack").length} snacks.</p>
+            <button className="primaire" onClick={() => creerAcces({ action: "accesTous" }, "Créer un mot de passe pour tous les snacks qui n'ont pas encore d'accès ?")}>Créer les accès manquants</button>
+          </>
+        ) : <p className="err">Supabase n'est pas encore configuré : les clients se connectent avec leur seul numéro.</p>}
+        {acces && (
+          <div style={{ marginTop: 10 }}>
+            <div className="ok">⚠️ Notez ou téléchargez ces mots de passe maintenant : ils ne seront plus affichés. Remettez-les aux clients (pas par un canal public).</div>
+            <div className="row no-print"><button onClick={telechargerAcces}>⬇ Télécharger (CSV)</button><button onClick={() => window.print()}>🖨️ Imprimer</button><button onClick={() => setAcces(null)}>Masquer</button></div>
+            <table><thead><tr><th>N°</th><th>Client</th><th>Mot de passe</th></tr></thead>
+              <tbody>{acces.map((a) => <tr key={a.id}><td>{a.id}</td><td>{a.nom}</td><td>{a.motDePasse ? <code style={{ fontSize: 16 }}>{a.motDePasse}</code> : <span className="badge rouge">{a.erreur}</span>}</td></tr>)}</tbody>
+            </table>
+          </div>
+        )}
+      </div>
       <div className="card">
         <h3>Importer le fichier LGL complet</h3>
         <p className="muted">Fichier <b>lgl-clients.json</b> généré au bureau par <code>node scripts/import-lgl.js</code> (base LGL + livreurs + commandes d'office). Les codes clients déjà définis sont conservés.</p>
@@ -303,23 +333,24 @@ function Clients({ etat, recharger }) {
           </div>
           <div className="row">
             <div><label>Mode par défaut</label><select value={edit.mode || "livraison"} onChange={(e) => setEdit({ ...edit, mode: e.target.value })}><option value="livraison">Livraison</option><option value="retrait">Retrait</option></select></div>
-            <div><label>Mot de passe du client : {edit.aCode ? "créé par le client" : "pas encore créé (1re connexion avec le numéro seul)"}</label><input value={edit.code || ""} onChange={(e) => setEdit({ ...edit, code: e.target.value })} /></div>
+            <div><label>Accès client : {edit.aAcces ? "✔ créé" : "pas encore créé"}</label>
+              {etat.supabaseActif && edit.id && <button onClick={() => creerAcces({ action: "acces", id: edit.id }, edit.aAcces ? "Réinitialiser le mot de passe de ce client ? L'ancien ne fonctionnera plus." : "Créer l'accès de ce client ?")}>{edit.aAcces ? "Réinitialiser le mot de passe" : "Créer l'accès"}</button>}
+            </div>
           </div>
           <div className="row" style={{ marginTop: 10 }}>
             <button className="primaire" disabled={!edit.id || !edit.nom} onClick={enregistrer}>Enregistrer</button>
             <button onClick={() => setEdit(null)}>Fermer</button>
-            {edit.aCode && <button onClick={async () => { if (confirm("Réinitialiser le mot de passe ? Le client en recréera un à sa prochaine connexion avec son numéro.")) { await api("/api/admin", { method: "POST", body: JSON.stringify({ action: "client", id: edit.id, resetCode: true }) }); setEdit(null); recharger(); } }}>Réinitialiser le mot de passe</button>}
             <button onClick={async () => { if (confirm("Supprimer ce client ?")) { await api("/api/admin", { method: "POST", body: JSON.stringify({ action: "client", id: edit.id, supprimer: true }) }); setEdit(null); recharger(); } }}>Supprimer</button>
           </div>
         </div>
       )}
       <div className="card table-scroll">
         <table>
-          <thead><tr><th>ID</th><th>Nom</th><th className="hide-mobile">Tournée</th><th>Livreur</th><th className="hide-mobile">Règlement</th><th>Type</th><th className="hide-mobile">Habitudes</th><th className="hide-mobile">Mot de passe</th></tr></thead>
+          <thead><tr><th>ID</th><th>Nom</th><th className="hide-mobile">Tournée</th><th>Livreur</th><th className="hide-mobile">Règlement</th><th>Type</th><th className="hide-mobile">Habitudes</th><th className="hide-mobile">Accès</th></tr></thead>
           <tbody>
             {liste.map((c) => (
               <tr key={c.id} onClick={() => setEdit({ ...c, code: "" })} style={{ cursor: "pointer" }}>
-                <td>{c.id}</td><td>{c.nom}</td><td className="hide-mobile">{c.tournee}</td><td>{c.livreur || ""}</td><td className="hide-mobile">{libReglement(c)}</td><td>{c.categorie === "snack" || !c.categorie ? <span className="badge vert">Snack</span> : <span className="badge">{c.categorie}</span>}</td><td className="hide-mobile">{c.habitudes ? Object.keys(c.habitudes).map((j) => j.slice(0, 3)).join(" ") : ""}</td><td className="hide-mobile">{c.aCode ? "✔ créé" : <span className="badge ambre">pas encore</span>}</td>
+                <td>{c.id}</td><td>{c.nom}</td><td className="hide-mobile">{c.tournee}</td><td>{c.livreur || ""}</td><td className="hide-mobile">{libReglement(c)}</td><td>{c.categorie === "snack" || !c.categorie ? <span className="badge vert">Snack</span> : <span className="badge">{c.categorie}</span>}</td><td className="hide-mobile">{c.habitudes ? Object.keys(c.habitudes).map((j) => j.slice(0, 3)).join(" ") : ""}</td><td className="hide-mobile">{c.aAcces ? "✔" : <span className="badge ambre">non</span>}</td>
               </tr>
             ))}
           </tbody>
