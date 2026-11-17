@@ -68,11 +68,12 @@ export async function POST(req) {
       if (!s.id || !s.nom) continue;
       if (enArret(s.tournee)) { parId.delete(String(s.id)); continue; } // anciens clients : retirés
       const c = parId.get(String(s.id)) || { id: String(s.id) };
+      const garde = Object.fromEntries((c.manuel || []).map((k) => [k, c[k]])); // modifications faites dans l'espace équipe
       Object.assign(c, {
         nom: s.nom, tournee: s.tournee || "Sans tournée", livreur: s.livreur || null, type: s.type || null,
         paiement: s.paiement || c.paiement || "compte", habitudes: s.habitudes || null, remarque: s.remarque || null, produits: s.produits || null, categorie: s.categorie || null,
         mode: c.mode || (/fournil/i.test(s.tournee || "") ? "retrait" : "livraison"),
-      });
+      }, garde);
       parId.set(c.id, c); n++;
     }
     await set("clients", [...parId.values()].filter((c) => !enArret(c.tournee)));
@@ -85,7 +86,15 @@ export async function POST(req) {
     let c = liste.find((x) => x.id === String(b.id));
     if (b.supprimer) { await set("clients", liste.filter((x) => x !== c)); return NextResponse.json({ ok: true }); }
     if (!c) { c = { id: String(b.id) }; liste.push(c); }
-    for (const k of ["nom", "tournee", "paiement", "mode", "categorie"]) if (b[k] != null) c[k] = b[k];
+    const LIVREURS = { 1: "Jules", 2: "Tita", 3: "Edmond", 4: "Franck", 5: "Alexis", 6: "Antoine", 7: "Tomasi", 8: "Yoann" };
+    const manuel = new Set(c.manuel || []);
+    for (const k of ["nom", "tournee", "paiement", "mode", "categorie", "livreur"]) if (b[k] != null && b[k] !== c[k]) { c[k] = b[k]; manuel.add(k); }
+    if (b.tournee != null && b.livreur == null) { // livreur et mode déduits de la tournée
+      const n = (String(b.tournee).match(/Livreurs*(d+)/i) || [])[1];
+      c.livreur = n ? LIVREURS[n] || null : null; manuel.add("livreur");
+      if (b.mode == null) { c.mode = /fournil/i.test(b.tournee) ? "retrait" : "livraison"; manuel.add("mode"); }
+    }
+    c.manuel = [...manuel];
     if (b.code) c.codeHash = hashCode(b.code);
     if (b.resetCode) delete c.codeHash; // le client recrée son mot de passe à la prochaine connexion
     await set("clients", liste);
