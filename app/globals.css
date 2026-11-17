@@ -90,3 +90,5 @@ html { -webkit-text-size-adjust: 100%; }
 .mdp { position: relative; }
 .mdp input { padding-right: 48px; }
 .mdp .oeil { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); border: 0; background: transparent; color: var(--gris); padding: 6px 8px; min-height: 0; }
+
+.encaisser { font-size: 16px; margin: 4px 0 8px; padding: 6px 8px; border: 2px solid #000; border-radius: 6px; display: inline-block; }

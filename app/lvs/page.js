@@ -205,7 +205,7 @@ function Livreurs({ cmds, coul, date }) {
           <section className="saut" key={tr}>
             <div className="row" style={{ borderBottom: "3px solid #000", padding: "6px 0", marginTop: 16 }}>
               <h2 style={{ margin: 0 }}>{tr}{liv ? ` — ${liv}` : ""}</h2>
-              <span style={{ textAlign: "right" }}>{frDate(date)} · {cs.length} client(s)</span>
+              <span style={{ textAlign: "right" }}>{frDate(date)} · {cs.length} client(s) · <b>Total à encaisser : {xpf(cs.filter(aEncaisser).reduce((t, c) => t + c.ttc, 0))}</b></span>
             </div>
             {cs.map((c) => <CommandeLivreur key={c.id} c={c} coul={coul} />)}
           </section>
@@ -216,11 +216,15 @@ function Livreurs({ cmds, coul, date }) {
   );
 }
 
+// Le livreur encaisse les clients au comptant et ceux en « règlement à la livraison »
+const aEncaisser = (c) => (c.paiement === "comptant" && c.statut === "a_payer") || c.paiement === "livraison";
+
 function CommandeLivreur({ c, coul }) {
   return (
         <div className="card">
           <h3 style={{ margin: "0 0 4px" }}>{c.clientNom}</h3>
-          <p>{c.mode === "retrait" ? "Retrait au fournil" : "Livraison"} · <Statut c={c} /> {((c.paiement === "comptant" && c.statut === "a_payer") || c.paiement === "livraison") && <b> — À ENCAISSER {xpf(c.ttc)}</b>}</p>
+          <p>{c.mode === "retrait" ? "Retrait au fournil" : "Livraison"} · <Statut c={c} /></p>
+          <p className="encaisser">{aEncaisser(c) ? <>À ENCAISSER : <b>{xpf(c.ttc)}</b> TTC</> : <>Montant : <b>{xpf(c.ttc)}</b> TTC — sur le relevé mensuel (rien à encaisser)</>}</p>
           <table>
             <thead><tr><th className="n">Qté</th><th>Produit</th><th>✓</th></tr></thead>
             <tbody>
