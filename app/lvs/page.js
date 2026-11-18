@@ -103,7 +103,6 @@ function Commandes({ cmds, coul, patch, date }) {
   return (
     <>
       <h2>{frDate(date)} — {cmds.length} commande(s), {faites} produite(s)</h2>
-      <div className="no-print"><label>Votre prénom (pour le OK production)</label><input value={par} onChange={(e) => setPar(e.target.value)} style={{ maxWidth: 260 }} /></div>
       {cmds.map((c) => (
         <div className="card" key={c.id} style={c.statut === "annulee" ? { opacity: .5 } : null}>
           <div className="row">
@@ -128,13 +127,8 @@ function Commandes({ cmds, coul, patch, date }) {
           </table>
           {c.note && <p>📝 {c.note}</p>}
           <p className="muted">{xpf(c.ttc)} TTC · commandé le {new Date(c.creeLe).toLocaleString("fr-FR", { timeZone: "Pacific/Noumea" })}</p>
-          <div className={"okbar" + (c.okProduit ? " fait" : "")}>
-            <span style={{ flex: 1 }}>{c.okProduit ? `✅ OK produit par ${c.okProduit.par || "?"} à ${new Date(c.okProduit.le).toLocaleTimeString("fr-FR", { timeZone: "Pacific/Noumea", hour: "2-digit", minute: "2-digit" })}` : "Production terminée ?"}</span>
-            <button className={c.okProduit ? "" : "primaire"} style={{ flex: "none" }} onClick={() => patch({ id: c.id, action: "ok", par })}>{c.okProduit ? "Annuler OK" : "OK ✔"}</button>
-          </div>
           <div className="row no-print" style={{ marginTop: 8 }}>
             {c.statut === "a_payer" && <button style={{ flex: "none" }} onClick={() => patch({ id: c.id, action: "payee" })}>Marquer payée</button>}
-            <button style={{ flex: "none" }} onClick={() => confirm(c.statut === "annulee" ? "Rétablir ?" : "Annuler cette commande ?") && patch({ id: c.id, action: "annuler" })}>{c.statut === "annulee" ? "Rétablir" : "Annuler"}</button>
           </div>
         </div>
       ))}
