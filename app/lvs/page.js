@@ -146,11 +146,12 @@ function Commandes({ cmds, coul, patch, date }) {
 function Total({ cmds, coul, date }) {
   const m = new Map();
   for (const c of cmds) for (const l of c.lignes) {
-    const k = l.produitId + "|" + l.decoupe;
-    const e = m.get(k) || { produitId: l.produitId, decoupe: l.decoupe, qte: 0, clients: 0 };
-    e.qte += l.qte; e.clients++; m.set(k, e);
+    // Total par produit, toutes découpes confondues (le détail des découpes est dans l'onglet Découpes)
+    const e = m.get(l.produitId) || { produitId: l.produitId, qte: 0, clients: new Set() };
+    e.qte += l.qte; e.clients.add(c.clientId || c.id); m.set(l.produitId, e);
   }
-  const rows = [...m.values()].sort((a, b) => ordreProduit[a.produitId] - ordreProduit[b.produitId] || a.decoupe.localeCompare(b.decoupe));
+  const rows = [...m.values()].map((e) => ({ ...e, clients: e.clients.size }))
+    .sort((a, b) => libelle(PRODUITS_BY_ID[a.produitId] || { nom: a.produitId }).localeCompare(libelle(PRODUITS_BY_ID[b.produitId] || { nom: b.produitId }), "fr"));
   const sections = [["snack", "Snacking"], ["emballe", "Pains emballés"]];
   return (
     <>
@@ -163,12 +164,11 @@ function Total({ cmds, coul, date }) {
           <div className="card" key={cat}>
             <h3>{titre}</h3>
             <table>
-              <thead><tr><th>Produit</th><th>Découpe</th><th className="n">Quantité</th><th className="n">Clients</th><th>OK</th></tr></thead>
+              <thead><tr><th>Produit</th><th className="n">Quantité</th><th className="n">Clients</th><th>OK</th></tr></thead>
               <tbody>
                 {r.map((x) => (
-                  <tr key={x.produitId + x.decoupe}>
+                  <tr key={x.produitId}>
                     <td>{libelle(PRODUITS_BY_ID[x.produitId])}</td>
-                    <td style={{ background: coul[x.decoupe]?.couleur }}>{coul[x.decoupe]?.nom || x.decoupe}</td>
                     <td className="n"><b style={{ fontSize: 16 }}>{x.qte}</b></td>
                     <td className="n">{x.clients}</td>
                     <td>☐</td>
