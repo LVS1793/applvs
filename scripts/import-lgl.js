@@ -88,7 +88,8 @@ const MAP = [
   [/sand/i, "E4"],
   [/filets?\s*180/i, "S75"],
   [/filets?\s*150/i, "S76"],
-  [/plats?\b/i, "S76"],
+  [/bagna/i, "BAGNA"],   // « Bagna Plat » : bagna (et non panini plat)
+  [/plats?\b/i, "PLAT"],  // « Plats » : panini plat facturé au client (180 g le plus souvent)
   [/baguettes?/i, "S12"],
   [/bagels? pavot/i, "S11"],
   [/bagels? nat/i, "S10"],
@@ -167,7 +168,7 @@ for (const c of resultat.values()) {
 // Rapprochements vérifiés à la main (nom du tableau -> ID LGL). null = client absent de la base LGL.
 const FORCE = {
   "Super Mag": "698", "Superette 68": "87", "Ma Vie Là": "723", "Trait. Myshop": "727", "Traiteur Best. Super.": "346",
-  "Total Ducos": "740", "Cosy Foch": "814", "Traiteur Michel Ange": "737", "The Road House": "816", "Lycée Pétro Atiti": "825", "Magasin Val Plaisance": "146", "Bikini": "180", "Loulou": "194",
+  "Total Ducos": "740", "Trait. Auchan Quai Ferry": "554", "Cosy Foch": "814", "Traiteur Michel Ange": "737", "The Road House": "816", "Lycée Pétro Atiti": "825", "Magasin Val Plaisance": "146", "Bikini": "180", "Loulou": "194",
 };
 const nonTrouves = [];
 for (const h of habitudes) {
@@ -347,6 +348,12 @@ for (const c of resultat.values()) {
   // commande d'office : ancien identifiant -> produit LGL (celui du client s'il l'a déjà été facturé, sinon le plus courant)
   for (const j of Object.values(c.habitudes || {})) for (const l of j.lignes) {
     if (String(l.produitId).startsWith("L")) continue;
+    if (l.produitId === "PLAT" || l.produitId === "BAGNA") {
+      const re = l.produitId === "PLAT" ? /^panini plat/i : /^bagna/i;
+      const nomFacture = Object.keys(f?.prod || {}).find((n) => re.test(n) && lglDe(n));
+      l.produitId = nomFacture ? lglDe(nomFacture) : (l.produitId === "PLAT" ? lglDe("Panini plat 180g") : lglDe("Bagna rond ou plat (kebbab) 150g"));
+      continue;
+    }
     const cible = convClient[l.produitId] || convGenerale[l.produitId];
     if (cible) l.produitId = cible; else sansConversion.add(l.produitId);
   }
