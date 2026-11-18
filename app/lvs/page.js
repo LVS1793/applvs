@@ -257,7 +257,7 @@ function CommandeLivreur({ c, coul }) {
           {c.supplement && <p><b>➕ Supplément : {c.supplement}</b></p>}
           {c.note && <p>📝 {c.note}</p>}
           <div className="okbar" style={{ marginTop: 8, padding: 6 }}>
-            <span style={{ flex: 1 }}>Produit : ☐ OK &nbsp;&nbsp; Par : ____________ &nbsp;&nbsp; Chargé : ☐</span>
+            <span style={{ flex: 1 }}>Préparé : ☐ &nbsp;&nbsp; Par : ____________ &nbsp;&nbsp; Contrôlé : ☐</span>
           </div>
         </div>
   );
