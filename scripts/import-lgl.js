@@ -317,10 +317,14 @@ for (const c of resultat.values()) {
 // + produits de sa commande d'office, convertis vers le produit LGL que ce client se fait réellement facturer.
 const { produitFacture } = require("./produits-factures.js"); // nom facturé -> ancien identifiant (sert à la conversion)
 const PRODUITS_LGL = JSON.parse(fs.readFileSync(path.join(__dirname, "../lib/produits-lgl.json"), "utf8"))
-  .filter((p) => ["Pains en tranches", "Pains de snack", "Baguettes"].includes(p.famille) && p.prix > 0);
+  .filter((p) => ["Pains en tranches", "Pains de snack", "Baguettes"].includes(p.famille) && p.prix > 0 && !/^divers|vrac|don de pain|rattrapage/i.test(p.nom));
 const lglParNom = new Map(PRODUITS_LGL.map((p) => [p.nom.trim().toLowerCase(), "L" + p.lgl]));
 const lglDe = (nom) => lglParNom.get(String(nom).trim().toLowerCase()) || null;
 const FACTURES = path.join(__dirname, "../factures-lgl.json");
+const LISTES = path.join(__dirname, "../listes-lgl.json"); // { idClient: [noms des lignes de ses bons de livraison] }
+const listes = fs.existsSync(LISTES) ? JSON.parse(fs.readFileSync(LISTES, "utf8")).res : null;
+const TARIFS = path.join(__dirname, "../tarifs-lgl.json"); // { idClient: { idProduitLGL: prix HT spécifique } }
+const tarifs = fs.existsSync(TARIFS) ? JSON.parse(fs.readFileSync(TARIFS, "utf8")).res : null;
 const factures = fs.existsSync(FACTURES) ? JSON.parse(fs.readFileSync(FACTURES, "utf8")) : null;
 // Conversion générale ancien identifiant -> produit LGL le plus facturé pour cet identifiant (tous clients)
 const compteConv = {};
@@ -334,13 +338,14 @@ const sansConversion = new Set(); const inconnusFactures = {};
 for (const c of resultat.values()) {
   const f = factures?.res?.[c.id];
   const factures_ = new Set(); const convClient = {};
+  // Liste de produits du client sur ses bons de livraison LGL (lignes présentes même à 0) : ce qu'il peut commander
+  for (const nom of listes?.[c.id] || []) { const l = lglDe(nom); if (l) factures_.add(l); else if (produitFacture(nom) !== null) inconnusFactures[nom] = (inconnusFactures[nom] || 0) + 1; }
   if (f) {
     c.nbFactures = f.n;
     for (const nom of Object.keys(f.prod)) {
       const l = lglDe(nom);
       if (l) {
         factures_.add(l); const anc = produitFacture(nom); if (anc && !convClient[anc]) convClient[anc] = l;
-        const pu = f.prod[nom]?.prix; if (pu > 0) (c.prix = c.prix || {})[l] = pu; // prix unitaire HT de la dernière facture
       }
       else if (produitFacture(nom) !== null) inconnusFactures[nom] = (inconnusFactures[nom] || 0) + 1;
     }
@@ -360,6 +365,10 @@ for (const c of resultat.values()) {
   const ids = new Set([...Object.values(c.habitudes || {}).flatMap((j) => j.lignes.map((l) => l.produitId)), ...factures_]);
   if (c.categorie !== "snack") { delete c.produits; continue; }
   if (ids.size) c.produits = [...ids]; else delete c.produits;
+  // Prix : tarif spécifique de la fiche client LGL (Tarifs spécifiques), sinon le prix de vente LGL du produit
+  delete c.prix;
+  const tarifsClient = tarifs?.[c.id] || {};
+  for (const id of c.produits || []) { const t = tarifsClient[String(id).slice(1)]; if (t > 0) (c.prix = c.prix || {})[id] = t; }
 }
 if (factures) console.log("Factures LGL :", Object.keys(factures.res || {}).length, "clients · noms facturés hors catalogue LGL pains :", JSON.stringify(inconnusFactures), "· sans conversion :", [...sansConversion].join(","));
 
