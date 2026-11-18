@@ -57,6 +57,7 @@ export async function POST(req) {
   }
 
   const mode = b.mode === "retrait" ? "retrait" : "livraison";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(b.date || "") || isNaN(Date.parse(b.date + "T12:00:00Z"))) return NextResponse.json({ erreur: "Date invalide." }, { status: 400 });
   const reglages = (await get("reglages")) || {};
   const lignes = (b.lignes || [])
     .map((l) => ({ produitId: l.produitId, qte: Math.max(0, Math.floor(Number(l.qte) || 0)), decoupe: decoupeValide(l.produitId, l.decoupe), ok: false }))
@@ -68,7 +69,7 @@ export async function POST(req) {
   // Commande d'office modifiée : jusqu'à la veille 13 h ; nouvelle commande : 48 h pour les pains emballés
   const modifOffice = !!b.office && !s.comptant && !!habitudeDuJour(client, b.date);
   const errDate = verifierDate(b.date, mode, modifOffice ? false : aEmballes);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(b.date || "") || errDate) return NextResponse.json({ erreur: errDate || "Date invalide." }, { status: 400 });
+  if (errDate) return NextResponse.json({ erreur: errDate }, { status: 400 });
 
   const t = totaux(lignes, mode, client.prix);
   if (mode === "livraison" && !suppSeul && t.ht < MINIMUM_LIVRAISON)
