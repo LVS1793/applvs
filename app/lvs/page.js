@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { PRODUITS, PRODUITS_BY_ID, libelle, TOURNEES, canonique } from "@/lib/catalog";
+import { PRODUITS, PRODUITS_BY_ID, libelle, TOURNEES, canonique, decoupeLigne } from "@/lib/catalog";
 import { frDate, maintenantNC } from "@/lib/rules";
 
 const api = async (url, opts) => {
@@ -391,43 +391,42 @@ function RecapEmballes({ coul }) {
       .then(setJours).catch(() => setJours([]));
   }, [debut]);
   if (!jours) return <div className="card"><p className="muted">Chargement du récapitulatif…</p></div>;
-  const lignes = new Map();
-  jours.forEach(({ date, cmds }, i) => cmds.forEach((c) => c.lignes.forEach((l) => {
+  // Total par découpe et par jour (pains emballés). Le standard n'est pas noté.
+  const DECOUPES = ["coupe_long", "coupe_fin", "tranche_2cm", "non_tranche"];
+  const tab = Object.fromEntries(DECOUPES.map((d) => [d, Array(jours.length).fill(0)]));
+  jours.forEach(({ cmds }, i) => cmds.forEach((c) => c.lignes.forEach((l) => {
     const pid = canonique(l.produitId);
     const p = PRODUITS_BY_ID[pid]; if (!p || p.cat !== "emballe" || !(l.qte > 0)) return;
-    const k = pid + "|" + (l.decoupe || "entier");
-    const e = lignes.get(k) || { produitId: pid, decoupe: l.decoupe || "entier", q: Array(jours.length).fill(0) };
-    e.q[i] += l.qte; lignes.set(k, e);
+    const dec = decoupeLigne({ ...l, produitId: pid });
+    if (tab[dec]) tab[dec][i] += l.qte;
   })));
-  const rows = [...lignes.values()].sort((a, b) => libelle(PRODUITS_BY_ID[a.produitId]).localeCompare(libelle(PRODUITS_BY_ID[b.produitId]), "fr") || a.decoupe.localeCompare(b.decoupe));
-  const totalJour = jours.map((_, i) => rows.reduce((t, r) => t + r.q[i], 0));
-  const court = (x) => new Date(x + "T12:00:00Z").toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", timeZone: "UTC" });
+  const somme = (a) => a.reduce((x, y) => x + y, 0);
+  const totalJour = jours.map((_, i) => DECOUPES.reduce((t, d) => t + tab[d][i], 0));
+  const court = (x) => new Date(x + "T12:00:00Z").toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
   return (
     <div className="card">
       <div className="row no-print" style={{ alignItems: "end" }}>
-        <h3 style={{ margin: 0 }}>Pains emballés commandés par jour</h3>
+        <h3 style={{ margin: 0 }}>Découpes à faire, par jour</h3>
         <div style={{ flex: "none" }}><label>À partir du</label><input type="date" value={debut} onChange={(e) => setDebut(e.target.value)} /></div>
         <button style={{ flex: "none" }} onClick={() => window.print()}>🖨️ Imprimer</button>
       </div>
-      <h3 className="print-only">Pains emballés commandés par jour</h3>
-      <p className="muted">Pains en tranches, avec leur découpe : commandes d'office et commandes en plus, hors commandes annulées.</p>
+      <h3 className="print-only">Découpes à faire, par jour</h3>
+      <p className="muted">Nombre de pains emballés par découpe (d'après le nom du produit LGL : C/Long, C/Fin, Non coupé… ou le choix du client). Le standard n'est pas compté. Commandes d'office et commandes en plus, hors annulées.</p>
       <div className="table-scroll">
         <table>
-          <thead><tr><th>Produit</th><th>Découpe</th>{jours.map((j) => <th key={j.date} className="n" style={{ textTransform: "capitalize" }}>{court(j.date)}</th>)}<th className="n">Total</th></tr></thead>
+          <thead><tr><th>Découpe</th>{jours.map((j) => <th key={j.date} className="n" style={{ textTransform: "capitalize" }}>{court(j.date)}</th>)}<th className="n">Total</th></tr></thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.produitId + r.decoupe}>
-                <td>{libelle(PRODUITS_BY_ID[r.produitId])}</td>
-                <td style={{ background: coul[r.decoupe]?.couleur }}>{coul[r.decoupe]?.nom || r.decoupe}</td>
-                {r.q.map((q, i) => <td key={i} className="n">{q || ""}</td>)}
-                <td className="n"><b>{r.q.reduce((a, b) => a + b, 0)}</b></td>
+            {DECOUPES.map((d) => (
+              <tr key={d}>
+                <td style={{ background: coul[d]?.couleur }}><b>{coul[d]?.nom || d}</b></td>
+                {tab[d].map((q, i) => <td key={i} className="n" style={{ fontSize: 16 }}>{q ? <b>{q}</b> : "—"}</td>)}
+                <td className="n"><b>{somme(tab[d])}</b></td>
               </tr>
             ))}
-            <tr><td colSpan={2}><b>TOTAL pains emballés</b></td>{totalJour.map((t, i) => <td key={i} className="n"><b>{t}</b></td>)}<td className="n"><b>{totalJour.reduce((a, b) => a + b, 0)}</b></td></tr>
+            <tr><td><b>TOTAL découpes</b></td>{totalJour.map((t, i) => <td key={i} className="n"><b>{t}</b></td>)}<td className="n"><b>{somme(totalJour)}</b></td></tr>
           </tbody>
         </table>
       </div>
-      {!rows.length && <p className="muted">Aucun pain emballé commandé sur ces jours.</p>}
     </div>
   );
 }
