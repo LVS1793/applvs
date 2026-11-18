@@ -69,7 +69,7 @@ export async function POST(req) {
   const errDate = verifierDate(b.date, mode, modifOffice ? false : aEmballes);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(b.date || "") || errDate) return NextResponse.json({ erreur: errDate || "Date invalide." }, { status: 400 });
 
-  const t = totaux(lignes, mode);
+  const t = totaux(lignes, mode, client.prix);
   if (mode === "livraison" && !suppSeul && t.ht < MINIMUM_LIVRAISON)
     return NextResponse.json({ erreur: `Minimum de livraison : ${MINIMUM_LIVRAISON} XPF HT (actuel : ${t.ht} XPF). Ajoutez des produits ou choisissez le retrait au fournil.` }, { status: 400 });
 

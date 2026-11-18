@@ -51,7 +51,7 @@ function MonEspace({ moi, mode }) {
                 {ids.map((id) => (
                   <tr key={id}>
                     <td>{libelle(PRODUITS_BY_ID[id])}</td>
-                    <td className="n">{prixHT(PRODUITS_BY_ID[id], mode)}</td>
+                    <td className="n">{prixHT(PRODUITS_BY_ID[id], mode, moi.prix)}</td>
                     {jours.map((j) => <td key={j} className="n">{hab[j].lignes.filter((l) => l.produitId === id).reduce((s, l) => s + l.qte, 0) || ""}</td>)}
                   </tr>
                 ))}
@@ -266,7 +266,7 @@ function Commande({ etat, recharger }) {
   const aEmballes = tab.some((l) => PRODUITS_BY_ID[l.produitId]?.cat === "emballe");
   const dates = useMemo(() => datesPossibles(mode, aEmballes), [mode, aEmballes]);
   useEffect(() => { if (!edition && !dates.includes(date)) setDate(dates[0] || ""); }, [dates, edition]);
-  const t = totaux(tab, mode);
+  const t = totaux(tab, mode, moi.prix);
 
   const habitudes = moi.habitudes || {};
   const joursHab = JOURS.filter((j) => habitudes[j]);
@@ -419,7 +419,7 @@ function Commande({ etat, recharger }) {
             <div className="ligne" key={p.id}>
               <div>
                 <div className="nom">{libelle(p)}</div>
-                <div className="prix">{prixHT(p, mode)} XPF HT {p.cat === "emballe" && "· 48 h"}</div>
+                <div className="prix">{prixHT(p, mode, moi.prix)} XPF HT {p.cat === "emballe" && "· 48 h"}</div>
               </div>
               <input type="number" min="0" inputMode="numeric" value={l.qte || ""} placeholder="0" onChange={(e) => maj(p.id, "qte", Number(e.target.value))} />
               {l.qte > 0 && decoupesDe(p.id).length > 0 && (

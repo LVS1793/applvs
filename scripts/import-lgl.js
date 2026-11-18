@@ -325,7 +325,8 @@ const factures = fs.existsSync(FACTURES) ? JSON.parse(fs.readFileSync(FACTURES, 
 const compteConv = {};
 for (const f of Object.values(factures?.res || {})) for (const [nom, n] of Object.entries(f.prod)) {
   const anc = produitFacture(nom), l = lglDe(nom);
-  if (anc && l) { (compteConv[anc] = compteConv[anc] || {})[l] = (compteConv[anc][l] || 0) + n; }
+  const nb = typeof n === "number" ? n : n.n; // ancien format : nombre ; nouveau : { n, q, prix }
+  if (anc && l) { (compteConv[anc] = compteConv[anc] || {})[l] = (compteConv[anc][l] || 0) + nb; }
 }
 const convGenerale = { S30: "L73", ...Object.fromEntries(Object.entries(compteConv).map(([anc, m]) => [anc, Object.entries(m).sort((x, y) => y[1] - x[1])[0][0]])) }; // S30 « Mini Hot Dog Sés » -> Mini Hot Dog Sésame 50g (jamais facturé récemment)
 const sansConversion = new Set(); const inconnusFactures = {};
@@ -336,7 +337,10 @@ for (const c of resultat.values()) {
     c.nbFactures = f.n;
     for (const nom of Object.keys(f.prod)) {
       const l = lglDe(nom);
-      if (l) { factures_.add(l); const anc = produitFacture(nom); if (anc && !convClient[anc]) convClient[anc] = l; }
+      if (l) {
+        factures_.add(l); const anc = produitFacture(nom); if (anc && !convClient[anc]) convClient[anc] = l;
+        const pu = f.prod[nom]?.prix; if (pu > 0) (c.prix = c.prix || {})[l] = pu; // prix unitaire HT de la dernière facture
+      }
       else if (produitFacture(nom) !== null) inconnusFactures[nom] = (inconnusFactures[nom] || 0) + 1;
     }
   }

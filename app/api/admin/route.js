@@ -19,7 +19,7 @@ export async function GET() {
   return NextResponse.json({
     admin: true, persistant, paiementActif: paiementActif || payzenActif,
     decoupes: fusionDecoupes(reg.decoupes),
-    clients: liste.map(({ codeHash, supaId, habitudes, produits, remarque, ...c }) => ({ ...c, aCode: !!codeHash, aAcces: !!supaId, joursHab: habitudes ? Object.keys(habitudes) : null })), supabaseActif,
+    clients: liste.map(({ codeHash, supaId, habitudes, produits, prix, remarque, ...c }) => ({ ...c, aCode: !!codeHash, aAcces: !!supaId, joursHab: habitudes ? Object.keys(habitudes) : null })), supabaseActif,
   });
 }
 
@@ -73,7 +73,7 @@ export async function POST(req) {
       Object.assign(c, {
         nom: s.nom, tournee: s.tournee || "Sans tournée", livreur: s.livreur || null, type: s.type || null,
         paiement: s.reglement ? (s.reglement === "comptant" ? "livraison" : "compte") : s.paiement || c.paiement || "compte",
-        reglement: s.reglement || null, habitudes: s.habitudes || null, remarque: s.remarque || null, produits: s.produits || null, categorie: s.categorie || null,
+        reglement: s.reglement || null, habitudes: s.habitudes || null, remarque: s.remarque || null, produits: s.produits || null, prix: s.prix || null, categorie: s.categorie || null,
         mode: c.mode || (/fournil/i.test(s.tournee || "") ? "retrait" : "livraison"),
       }, garde);
       parId.set(c.id, c); n++;
