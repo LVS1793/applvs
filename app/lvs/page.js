@@ -84,7 +84,7 @@ function Espace({ etat, recharger }) {
         {onglet === "total" && <Total cmds={actives} coul={coul} date={date} />}
         {onglet === "livreurs" && <Livreurs cmds={actives} coul={coul} date={date} />}
         {onglet === "clients" && <Clients etat={etat} recharger={recharger} />}
-        {onglet === "reglages" && <Decoupes etat={etat} recharger={recharger} />}
+        {onglet === "reglages" && <><RecapEmballes coul={coul} /><Decoupes etat={etat} recharger={recharger} /></>}
       </main>
     </>
   );
@@ -375,6 +375,58 @@ function Clients({ etat, recharger }) {
         {!liste.length && <p className="muted">Aucun client.</p>}
       </div>
     </>
+  );
+}
+
+// Récapitulatif des pains emballés (pains en tranches) commandés, jour par jour, avec leur découpe
+function RecapEmballes({ coul }) {
+  const [jours, setJours] = useState(null);
+  const [debut, setDebut] = useState(lendemain());
+  useEffect(() => {
+    setJours(null);
+    const dates = []; const d = new Date(debut + "T12:00:00Z");
+    while (dates.length < 6) { if (d.getUTCDay() !== 0) dates.push(d.toISOString().slice(0, 10)); d.setUTCDate(d.getUTCDate() + 1); }
+    Promise.all(dates.map((x) => api("/api/orders?date=" + x).then((r) => ({ date: x, cmds: r.commandes.filter((c) => c.statut !== "annulee") }))))
+      .then(setJours).catch(() => setJours([]));
+  }, [debut]);
+  if (!jours) return <div className="card"><p className="muted">Chargement du récapitulatif…</p></div>;
+  const lignes = new Map();
+  jours.forEach(({ date, cmds }, i) => cmds.forEach((c) => c.lignes.forEach((l) => {
+    const p = PRODUITS_BY_ID[l.produitId]; if (!p || p.cat !== "emballe" || !(l.qte > 0)) return;
+    const k = l.produitId + "|" + (l.decoupe || "entier");
+    const e = lignes.get(k) || { produitId: l.produitId, decoupe: l.decoupe || "entier", q: Array(jours.length).fill(0) };
+    e.q[i] += l.qte; lignes.set(k, e);
+  })));
+  const rows = [...lignes.values()].sort((a, b) => libelle(PRODUITS_BY_ID[a.produitId]).localeCompare(libelle(PRODUITS_BY_ID[b.produitId]), "fr") || a.decoupe.localeCompare(b.decoupe));
+  const totalJour = jours.map((_, i) => rows.reduce((t, r) => t + r.q[i], 0));
+  const court = (x) => new Date(x + "T12:00:00Z").toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", timeZone: "UTC" });
+  return (
+    <div className="card">
+      <div className="row no-print" style={{ alignItems: "end" }}>
+        <h3 style={{ margin: 0 }}>Pains emballés commandés par jour</h3>
+        <div style={{ flex: "none" }}><label>À partir du</label><input type="date" value={debut} onChange={(e) => setDebut(e.target.value)} /></div>
+        <button style={{ flex: "none" }} onClick={() => window.print()}>🖨️ Imprimer</button>
+      </div>
+      <h3 className="print-only">Pains emballés commandés par jour</h3>
+      <p className="muted">Pains en tranches, avec leur découpe : commandes d'office et commandes en plus, hors commandes annulées.</p>
+      <div className="table-scroll">
+        <table>
+          <thead><tr><th>Produit</th><th>Découpe</th>{jours.map((j) => <th key={j.date} className="n" style={{ textTransform: "capitalize" }}>{court(j.date)}</th>)}<th className="n">Total</th></tr></thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.produitId + r.decoupe}>
+                <td>{libelle(PRODUITS_BY_ID[r.produitId])}</td>
+                <td style={{ background: coul[r.decoupe]?.couleur }}>{coul[r.decoupe]?.nom || r.decoupe}</td>
+                {r.q.map((q, i) => <td key={i} className="n">{q || ""}</td>)}
+                <td className="n"><b>{r.q.reduce((a, b) => a + b, 0)}</b></td>
+              </tr>
+            ))}
+            <tr><td colSpan={2}><b>TOTAL pains emballés</b></td>{totalJour.map((t, i) => <td key={i} className="n"><b>{t}</b></td>)}<td className="n"><b>{totalJour.reduce((a, b) => a + b, 0)}</b></td></tr>
+          </tbody>
+        </table>
+      </div>
+      {!rows.length && <p className="muted">Aucun pain emballé commandé sur ces jours.</p>}
+    </div>
   );
 }
 
