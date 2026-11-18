@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { PRODUITS, PRODUITS_BY_ID, libelle, TOURNEES } from "@/lib/catalog";
+import { PRODUITS, PRODUITS_BY_ID, libelle, TOURNEES, canonique } from "@/lib/catalog";
 import { frDate, maintenantNC } from "@/lib/rules";
 
 const api = async (url, opts) => {
@@ -147,8 +147,9 @@ function Total({ cmds, coul, date }) {
   const m = new Map();
   for (const c of cmds) for (const l of c.lignes) {
     // Total par produit, toutes découpes confondues (le détail des découpes est dans l'onglet Découpes)
-    const e = m.get(l.produitId) || { produitId: l.produitId, qte: 0, clients: new Set() };
-    e.qte += l.qte; e.clients.add(c.clientId || c.id); m.set(l.produitId, e);
+    const pid = canonique(l.produitId);
+    const e = m.get(pid) || { produitId: pid, qte: 0, clients: new Set() };
+    e.qte += l.qte; e.clients.add(c.clientId || c.id); m.set(pid, e);
   }
   const rows = [...m.values()].map((e) => ({ ...e, clients: e.clients.size }))
     .sort((a, b) => libelle(PRODUITS_BY_ID[a.produitId] || { nom: a.produitId }).localeCompare(libelle(PRODUITS_BY_ID[b.produitId] || { nom: b.produitId }), "fr"));
@@ -392,9 +393,10 @@ function RecapEmballes({ coul }) {
   if (!jours) return <div className="card"><p className="muted">Chargement du récapitulatif…</p></div>;
   const lignes = new Map();
   jours.forEach(({ date, cmds }, i) => cmds.forEach((c) => c.lignes.forEach((l) => {
-    const p = PRODUITS_BY_ID[l.produitId]; if (!p || p.cat !== "emballe" || !(l.qte > 0)) return;
-    const k = l.produitId + "|" + (l.decoupe || "entier");
-    const e = lignes.get(k) || { produitId: l.produitId, decoupe: l.decoupe || "entier", q: Array(jours.length).fill(0) };
+    const pid = canonique(l.produitId);
+    const p = PRODUITS_BY_ID[pid]; if (!p || p.cat !== "emballe" || !(l.qte > 0)) return;
+    const k = pid + "|" + (l.decoupe || "entier");
+    const e = lignes.get(k) || { produitId: pid, decoupe: l.decoupe || "entier", q: Array(jours.length).fill(0) };
     e.q[i] += l.qte; lignes.set(k, e);
   })));
   const rows = [...lignes.values()].sort((a, b) => libelle(PRODUITS_BY_ID[a.produitId]).localeCompare(libelle(PRODUITS_BY_ID[b.produitId]), "fr") || a.decoupe.localeCompare(b.decoupe));
