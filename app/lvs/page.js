@@ -383,7 +383,7 @@ function RecapEmballes({ coul }) {
   useEffect(() => {
     setJours(null);
     const dates = []; const d = new Date(debut + "T12:00:00Z");
-    while (dates.length < 6) { if (d.getUTCDay() !== 0) dates.push(d.toISOString().slice(0, 10)); d.setUTCDate(d.getUTCDate() + 1); }
+    dates.push(debut); // un seul jour : celui choisi
     Promise.all(dates.map((x) => api("/api/orders?date=" + x).then((r) => ({ date: x, cmds: r.commandes.filter((c) => c.statut !== "annulee") }))))
       .then(setJours).catch(() => setJours([]));
   }, [debut]);
@@ -403,24 +403,23 @@ function RecapEmballes({ coul }) {
   return (
     <div className="card">
       <div className="row no-print" style={{ alignItems: "end" }}>
-        <h3 style={{ margin: 0 }}>Découpes à faire, par jour</h3>
-        <div style={{ flex: "none" }}><label>À partir du</label><input type="date" value={debut} onChange={(e) => setDebut(e.target.value)} /></div>
+        <h3 style={{ margin: 0 }}>Découpes à faire — {frDate(debut)}</h3>
+        <div style={{ flex: "none" }}><label>Jour</label><input type="date" value={debut} onChange={(e) => setDebut(e.target.value)} /></div>
         <button style={{ flex: "none" }} onClick={() => window.print()}>🖨️ Imprimer</button>
       </div>
-      <h3 className="print-only">Découpes à faire, par jour</h3>
+      <h3 className="print-only">Découpes à faire — {frDate(debut)}</h3>
       <p className="muted">Nombre de pains emballés par découpe, standard compris (d'après le nom du produit LGL : C/Long, C/Fin, Non coupé… ou le choix du client). Commandes d'office et commandes en plus, hors annulées.</p>
       <div className="table-scroll">
         <table>
-          <thead><tr><th>Découpe</th>{jours.map((j) => <th key={j.date} className="n" style={{ textTransform: "capitalize" }}>{court(j.date)}</th>)}<th className="n">Total</th></tr></thead>
+          <thead><tr><th>Découpe</th><th className="n">Quantité</th></tr></thead>
           <tbody>
             {DECOUPES.map((d) => (
               <tr key={d}>
                 <td style={{ background: coul[d]?.couleur }}><b>{coul[d]?.nom || d}</b></td>
-                {tab[d].map((q, i) => <td key={i} className="n" style={{ fontSize: 16 }}>{q ? <b>{q}</b> : "—"}</td>)}
-                <td className="n"><b>{somme(tab[d])}</b></td>
+                <td className="n" style={{ fontSize: 18 }}>{tab[d][0] ? <b>{tab[d][0]}</b> : "—"}</td>
               </tr>
             ))}
-            <tr><td><b>TOTAL pains emballés</b></td>{totalJour.map((t, i) => <td key={i} className="n"><b>{t}</b></td>)}<td className="n"><b>{somme(totalJour)}</b></td></tr>
+            <tr><td><b>TOTAL pains emballés</b></td><td className="n" style={{ fontSize: 18 }}><b>{totalJour[0]}</b></td></tr>
           </tbody>
         </table>
       </div>
