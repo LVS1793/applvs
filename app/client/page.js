@@ -60,7 +60,7 @@ function MonEspace({ moi, mode }) {
           </div>
           {jours.some((j) => hab[j].texte) && <p className="muted">Aussi : {jours.filter((j) => hab[j].texte).map((j) => `${j} : ${hab[j].texte}`).join(" · ")}</p>}
           {moi.remarque && <p className="muted">Note : {moi.remarque}</p>}
-          <p className="muted">Prix {mode === "retrait" ? "fournil" : "livraison"} 2026, hors TGC 3 %. Votre commande habituelle est pré-remplie selon le jour choisi.</p>
+          <p className="muted">Prix HT de votre facture LGL, hors TGC 3 %. Votre commande habituelle est pré-remplie selon le jour choisi.</p>
           <AppelHabitude />
         </>
       )}

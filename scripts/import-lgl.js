@@ -103,9 +103,9 @@ const ALIAS = {
   S11: idParNom("Bagel pavot, sésame", 100), S10: idParNom("Bagel", 100),
 };
 function requireCatalog() {
-  // lib/catalog.js est un module ESM : on l'évalue simplement
-  const src = fs.readFileSync(path.join(__dirname, "../lib/catalog.js"), "utf8").replace(/export /g, "");
-  return new Function(src + "; return { PRODUITS };")();
+  // ancien catalogue (abréviations du fichier des commandes d'office) : module ESM évalué simplement
+  const src = fs.readFileSync(path.join(__dirname, "../lib/catalogue-ancien.js"), "utf8").replace(/export /g, "");
+  return new Function(src + "; return { PRODUITS: PRODUITS_ANCIENS };")();
 }
 const resoudre = (code) => ALIAS[code] || code;
 
@@ -312,25 +312,45 @@ for (const c of resultat.values()) {
 
 // Liste des produits proposés à chaque client = produits FACTURÉS (10 dernières livraisons LGL, fichier factures-lgl.json)
 // + produits de sa commande d'office. Le fichier factures-lgl.json est extrait du LGL en ligne (pages « Livraisons » des clients).
-const { produitFacture } = require("./produits-factures.js");
+// Produits de chaque client = produits LGL FACTURÉS (10 dernières livraisons, factures-lgl.json, noms LGL exacts)
+// + produits de sa commande d'office, convertis vers le produit LGL que ce client se fait réellement facturer.
+const { produitFacture } = require("./produits-factures.js"); // nom facturé -> ancien identifiant (sert à la conversion)
+const PRODUITS_LGL = JSON.parse(fs.readFileSync(path.join(__dirname, "../lib/produits-lgl.json"), "utf8"))
+  .filter((p) => ["Pains en tranches", "Pains de snack", "Baguettes"].includes(p.famille) && p.prix > 0);
+const lglParNom = new Map(PRODUITS_LGL.map((p) => [p.nom.trim().toLowerCase(), "L" + p.lgl]));
+const lglDe = (nom) => lglParNom.get(String(nom).trim().toLowerCase()) || null;
 const FACTURES = path.join(__dirname, "../factures-lgl.json");
 const factures = fs.existsSync(FACTURES) ? JSON.parse(fs.readFileSync(FACTURES, "utf8")) : null;
-const inconnusFactures = {};
+// Conversion générale ancien identifiant -> produit LGL le plus facturé pour cet identifiant (tous clients)
+const compteConv = {};
+for (const f of Object.values(factures?.res || {})) for (const [nom, n] of Object.entries(f.prod)) {
+  const anc = produitFacture(nom), l = lglDe(nom);
+  if (anc && l) { (compteConv[anc] = compteConv[anc] || {})[l] = (compteConv[anc][l] || 0) + n; }
+}
+const convGenerale = { S30: "L73", ...Object.fromEntries(Object.entries(compteConv).map(([anc, m]) => [anc, Object.entries(m).sort((x, y) => y[1] - x[1])[0][0]])) }; // S30 « Mini Hot Dog Sés » -> Mini Hot Dog Sésame 50g (jamais facturé récemment)
+const sansConversion = new Set(); const inconnusFactures = {};
 for (const c of resultat.values()) {
-  const ids = new Set(Object.values(c.habitudes || {}).flatMap((j) => j.lignes.map((l) => l.produitId)));
   const f = factures?.res?.[c.id];
+  const factures_ = new Set(); const convClient = {};
   if (f) {
     c.nbFactures = f.n;
     for (const nom of Object.keys(f.prod)) {
-      const id = produitFacture(nom);
-      if (id) ids.add(id);
-      else if (id === undefined) inconnusFactures[nom] = (inconnusFactures[nom] || 0) + 1;
+      const l = lglDe(nom);
+      if (l) { factures_.add(l); const anc = produitFacture(nom); if (anc && !convClient[anc]) convClient[anc] = l; }
+      else if (produitFacture(nom) !== null) inconnusFactures[nom] = (inconnusFactures[nom] || 0) + 1;
     }
   }
+  // commande d'office : ancien identifiant -> produit LGL (celui du client s'il l'a déjà été facturé, sinon le plus courant)
+  for (const j of Object.values(c.habitudes || {})) for (const l of j.lignes) {
+    if (String(l.produitId).startsWith("L")) continue;
+    const cible = convClient[l.produitId] || convGenerale[l.produitId];
+    if (cible) l.produitId = cible; else sansConversion.add(l.produitId);
+  }
+  const ids = new Set([...Object.values(c.habitudes || {}).flatMap((j) => j.lignes.map((l) => l.produitId)), ...factures_]);
   if (c.categorie !== "snack") { delete c.produits; continue; }
   if (ids.size) c.produits = [...ids]; else delete c.produits;
 }
-if (factures) console.log("Factures LGL :", Object.keys(factures.res || {}).length, "clients lus · produits facturés absents du catalogue :", JSON.stringify(inconnusFactures));
+if (factures) console.log("Factures LGL :", Object.keys(factures.res || {}).length, "clients · noms facturés hors catalogue LGL pains :", JSON.stringify(inconnusFactures), "· sans conversion :", [...sansConversion].join(","));
 
 // Mode de règlement d'après les relevés LGL (fichier releves-lgl.json, dates des relevés depuis juillet 2026) :
 // relevés tous les 15 jours = à la quinzaine ; relevés mensuels = au mois ; aucun relevé = comptant.
