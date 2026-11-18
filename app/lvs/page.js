@@ -102,7 +102,7 @@ function Commandes({ cmds, coul, patch, date }) {
   const faites = cmds.filter((c) => c.okProduit).length;
   return (
     <>
-      <h2>{frDate(date)} — {cmds.length} commande(s), {faites} produite(s)</h2>
+      <h2>{frDate(date)} — {cmds.length} commande(s)</h2>
       {cmds.map((c) => (
         <div className="card" key={c.id} style={c.statut === "annulee" ? { opacity: .5 } : null}>
           <div className="row">
