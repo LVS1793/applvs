@@ -392,7 +392,7 @@ function RecapEmballes({ coul }) {
   }, [debut]);
   if (!jours) return <div className="card"><p className="muted">Chargement du récapitulatif…</p></div>;
   // Total par découpe et par jour (pains emballés). Le standard n'est pas noté.
-  const DECOUPES = ["coupe_long", "coupe_fin", "tranche_2cm", "non_tranche"];
+  const DECOUPES = ["entier", "coupe_long", "coupe_fin", "tranche_2cm", "non_tranche"];
   const tab = Object.fromEntries(DECOUPES.map((d) => [d, Array(jours.length).fill(0)]));
   jours.forEach(({ cmds }, i) => cmds.forEach((c) => c.lignes.forEach((l) => {
     const pid = canonique(l.produitId);
@@ -411,7 +411,7 @@ function RecapEmballes({ coul }) {
         <button style={{ flex: "none" }} onClick={() => window.print()}>🖨️ Imprimer</button>
       </div>
       <h3 className="print-only">Découpes à faire, par jour</h3>
-      <p className="muted">Nombre de pains emballés par découpe (d'après le nom du produit LGL : C/Long, C/Fin, Non coupé… ou le choix du client). Le standard n'est pas compté. Commandes d'office et commandes en plus, hors annulées.</p>
+      <p className="muted">Nombre de pains emballés par découpe, standard compris (d'après le nom du produit LGL : C/Long, C/Fin, Non coupé… ou le choix du client). Commandes d'office et commandes en plus, hors annulées.</p>
       <div className="table-scroll">
         <table>
           <thead><tr><th>Découpe</th>{jours.map((j) => <th key={j.date} className="n" style={{ textTransform: "capitalize" }}>{court(j.date)}</th>)}<th className="n">Total</th></tr></thead>
@@ -423,7 +423,7 @@ function RecapEmballes({ coul }) {
                 <td className="n"><b>{somme(tab[d])}</b></td>
               </tr>
             ))}
-            <tr><td><b>TOTAL découpes</b></td>{totalJour.map((t, i) => <td key={i} className="n"><b>{t}</b></td>)}<td className="n"><b>{somme(totalJour)}</b></td></tr>
+            <tr><td><b>TOTAL pains emballés</b></td>{totalJour.map((t, i) => <td key={i} className="n"><b>{t}</b></td>)}<td className="n"><b>{somme(totalJour)}</b></td></tr>
           </tbody>
         </table>
       </div>
