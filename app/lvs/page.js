@@ -179,6 +179,23 @@ function Total({ cmds, coul, date }) {
           </div>
         );
       })}
+      {rows.length > 0 && (() => {
+        const parCat = (cat) => rows.filter((x) => PRODUITS_BY_ID[x.produitId]?.cat === cat).reduce((t, x) => t + x.qte, 0);
+        const total = rows.reduce((t, x) => t + x.qte, 0);
+        const ht = cmds.reduce((t, c) => t + (c.ht || 0), 0), ttc = cmds.reduce((t, c) => t + (c.ttc || 0), 0);
+        return (
+          <div className="card total-global">
+            <h3 style={{ marginTop: 0 }}>Total global de la production</h3>
+            <table><tbody>
+              <tr><td>Snacking</td><td className="n"><b>{parCat("snack")}</b> pièces</td></tr>
+              <tr><td>Pains en tranches (emballés)</td><td className="n"><b>{parCat("emballe")}</b> pièces</td></tr>
+              <tr><td><b>TOTAL</b></td><td className="n"><b style={{ fontSize: 20 }}>{total}</b> pièces</td></tr>
+              <tr><td>Commandes / clients</td><td className="n">{cmds.length}</td></tr>
+              <tr><td>Montant</td><td className="n">{xpf(ht)} HT · {xpf(ttc)} TTC</td></tr>
+            </tbody></table>
+          </div>
+        );
+      })()}
       {!rows.length && <p className="muted">Rien à produire.</p>}
     </>
   );
