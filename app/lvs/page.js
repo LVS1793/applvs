@@ -104,7 +104,11 @@ function Commandes({ cmds, coul, patch, date }) {
     <>
       <h2>{frDate(date)} — {cmds.length} commande(s)</h2>
       {cmds.map((c) => (
-        <div className="card" key={c.id} style={c.statut === "annulee" ? { opacity: .5 } : null}>
+        <div className={"card" + (c.statut === "annulee" ? " cmd-annulee" : "")} key={c.id}>
+          {c.statut === "annulee" && <div className="bandeau-annulee">ANNULÉE{c.modifiePar === "client" ? " PAR LE CLIENT" : ""}{c.modifieLe ? <small> — le {new Date(c.modifieLe).toLocaleString("fr-FR", { timeZone: "Pacific/Noumea", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</small> : null}</div>}
+          {c.statut !== "annulee" && c.modifiePar === "client" && c.modifieLe && (
+            <div className="bandeau-modifiee">✏️ {c.actionClient === "retablie" ? "Rétablie" : "Modifiée"} par le client le {new Date(c.modifieLe).toLocaleString("fr-FR", { timeZone: "Pacific/Noumea", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}{c.office ? " (commande d'office)" : ""}</div>
+          )}
           <div className="row">
             <b>{c.clientNom}</b>
             <span className="muted" style={{ textAlign: "right" }}>{c.mode === "retrait" ? "Retrait fournil" : c.tournee} · <Statut c={c} />{c.office && <> · <span className="badge">{c.auto ? "Commande d'office" : "Office modifiée par le " + (c.modifiePar || "client")}</span></>}</span>
@@ -120,7 +124,6 @@ function Commandes({ cmds, coul, patch, date }) {
                   <td style={{ width: 32 }}><input type="checkbox" checked={!!l.ok} onChange={() => patch({ id: c.id, action: "ligne", index: i })} style={{ width: 20, height: 20 }} /></td>
                   <td className="n" style={{ width: 50 }}><b>{l.qte}</b></td>
                   <td>{PRODUITS_BY_ID[l.produitId] ? libelle(PRODUITS_BY_ID[l.produitId]) : l.produitId}</td>
-                  <td style={{ background: coul[l.decoupe]?.couleur }}>{coul[l.decoupe]?.nom || l.decoupe}</td>
                 </tr>
               ))}
             </tbody>

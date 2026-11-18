@@ -51,6 +51,7 @@ export async function POST(req) {
     if (b.action === "annulerOffice" && o.statut !== "annulee") { o.statutAvant = o.statut; o.statut = "annulee"; }
     if (b.action === "retablirOffice" && o.statut === "annulee") o.statut = o.statutAvant || "confirmee";
     delete o.auto; o.modifieLe = new Date().toISOString(); o.modifiePar = "client";
+    o.actionClient = b.action === "annulerOffice" ? "annulee" : "retablie";
     await ecrireCommande(o);
     return NextResponse.json({ commande: o });
   }
@@ -77,7 +78,7 @@ export async function POST(req) {
   const office = !!b.office && !s.comptant && !!habitudeDuJour(client, b.date);
   const cmd = {
     id: office ? idOffice(client.id) : crypto.randomUUID().slice(0, 8),
-    ...(office ? { office: true, modifieLe: new Date().toISOString(), modifiePar: "client" } : {}),
+    ...(office ? { office: true, modifieLe: new Date().toISOString(), modifiePar: "client", actionClient: "modifiee" } : {}),
     date: b.date, mode,
     clientId: client.id, clientNom: client.nom,
     tournee: mode === "retrait" ? "Fournil" : client.tournee || "Sans tournée",
